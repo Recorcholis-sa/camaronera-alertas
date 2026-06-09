@@ -129,7 +129,15 @@ def extraer_con_ia(imagen_b64, mime):
     )
     with urllib.request.urlopen(req, timeout=60) as r:
         resp = json.loads(r.read())
-    text = "".join(b.get("text","") for b in resp["content"]).replace("```json","").replace("```","").strip()
+    text = "".join(b.get("text","") for b in resp["content"]).strip()
+    if "```json" in text:
+        text = text.split("```json")[1].split("```")[0].strip()
+    elif "```" in text:
+        text = text.split("```")[1].split("```")[0].strip()
+    start = text.find("{")
+    end = text.rfind("}") + 1
+    if start >= 0 and end > start:
+        text = text[start:end]
     return json.loads(text)
 
 # ── Alertas ──────────────────────────────────────────────
