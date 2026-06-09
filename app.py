@@ -131,10 +131,14 @@ def evaluar_y_notificar(datos, campo_param):
             alertas.append({**p, "estado_am": eam, "estado_pm": epm})
     if not alertas:
         return 0
+    print(f"Sector buscado: {sector}")
+    print(f"Total usuarios: gerencia={len(db['gerencia'])}, biologos={len(db['biologos'])}")
     destinatarios = []
     for u in db["gerencia"] + db["biologos"]:
         campos_u = [c.lower() for c in u.get("campos", [])]
-        if any(sector.lower() in c or c in sector.lower() for c in campos_u):
+        match = any(sector.lower() in c or c in sector.lower() for c in campos_u)
+        print(f"  {u.get('nombre')}: campos={u.get('campos',[])} match={match}")
+        if match:
             destinatarios.append(u)
     enviados = 0
     vistos = set()
