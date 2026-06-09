@@ -19,7 +19,20 @@ CAMPOS = [
 ]
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "usuarios.json")
-RESULTS = {}  # almacena resultados por job_id
+RESULTS_DIR = os.path.join(os.path.dirname(__file__), "results")
+os.makedirs(RESULTS_DIR, exist_ok=True)
+
+def guardar_resultado(job_id, data):
+    path = os.path.join(RESULTS_DIR, f"{job_id}.json")
+    with open(path, "w") as f:
+        json.dump(data, f)
+
+def leer_resultado(job_id):
+    path = os.path.join(RESULTS_DIR, f"{job_id}.json")
+    if os.path.exists(path):
+        with open(path, "r") as f:
+            return json.load(f)
+    return None
 
 def leer_db():
     if os.path.exists(DB_PATH):
@@ -78,7 +91,7 @@ def procesar():
     # Generar job_id único
     import time
     job_id = str(int(time.time() * 1000))
-    RESULTS[job_id] = {"estado": "procesando"}
+    guardar_resultado(job_id, {"estado": "procesando"})
     # Procesar en hilo separado
     t = threading.Thread(target=procesar_async, args=(job_id, imagen_b64, mime, campo_parametrista))
     t.daemon = True
@@ -91,19 +104,22 @@ def procesar_async(job_id, imagen_b64, mime, campo_parametrista):
         if campo_parametrista and not datos.get("sector"):
             datos["sector"] = campo_parametrista
         alertas = evaluar_y_notificar(datos, campo_parametrista)
-        RESULTS[job_id] = {
+        guardar_resultado(job_id, {
             "estado": "listo",
             "fecha": datos.get("fecha"),
             "sector": datos.get("sector"),
             "piscinas": datos.get("piscinas", []),
             "alertas_enviadas": alertas
-        }
+        })
     except Exception as e:
-        RESULTS[job_id] = {"estado": "error", "error": str(e)}
+        guardar_resultado(job_id, {"estado": "error", "error": str(e)})
 
 @app.route("/api/resultado/<job_id>", methods=["GET"])
 def resultado(job_id):
-    return jsonify(RESULTS.get(job_id, {"estado": "no_encontrado"}))
+        res = leer_resultado(job_id)
+    if res is None:
+        return jsonify({"estado": "procesando"})
+    return jsonify(res)
 
 def extraer_con_ia(imagen_b64, mime):
     payload = {
