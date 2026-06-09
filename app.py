@@ -1,5 +1,4 @@
-import os, json, base64, smtplib, urllib.request, urllib.parse, io
-from PIL import Image
+import os, json, base64, smtplib, urllib.request, urllib.parse
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from flask import Flask, request, jsonify, render_template, send_from_directory
