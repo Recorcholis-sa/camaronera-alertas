@@ -100,7 +100,9 @@ def procesar():
 
 def procesar_async(job_id, imagen_b64, mime, campo_parametrista):
     try:
+        print(f"[JOB {job_id}] Iniciando extraccion IA...")
         datos = extraer_con_ia(imagen_b64, mime)
+        print(f"[JOB {job_id}] IA respondio: {len(datos.get('piscinas',[]))} piscinas")
         if campo_parametrista and not datos.get("sector"):
             datos["sector"] = campo_parametrista
         alertas = evaluar_y_notificar(datos, campo_parametrista)
@@ -111,7 +113,9 @@ def procesar_async(job_id, imagen_b64, mime, campo_parametrista):
             "piscinas": datos.get("piscinas", []),
             "alertas_enviadas": alertas
         })
+        print(f"[JOB {job_id}] Resultado guardado OK")
     except Exception as e:
+        print(f"[JOB {job_id}] ERROR: {str(e)}")
         guardar_resultado(job_id, {"estado": "error", "error": str(e)})
 
 @app.route("/api/resultado/<job_id>", methods=["GET"])
