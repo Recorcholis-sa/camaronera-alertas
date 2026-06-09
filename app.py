@@ -116,7 +116,7 @@ def procesar_async(job_id, imagen_b64, mime, campo_parametrista):
 
 @app.route("/api/resultado/<job_id>", methods=["GET"])
 def resultado(job_id):
-        res = leer_resultado(job_id)
+    res = leer_resultado(job_id)
     if res is None:
         return jsonify({"estado": "procesando"})
     return jsonify(res)
