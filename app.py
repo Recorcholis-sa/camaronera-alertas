@@ -115,7 +115,7 @@ def procesar():
 
 def extraer_con_ia(imagen_b64, mime):
     payload = {
-        "model": "claude-sonnet-4-20250514",
+        "model": "claude-sonnet-4-6",
         "max_tokens": 4000,
         "messages": [{"role": "user", "content": [
             {"type": "image", "source": {"type": "base64", "media_type": mime, "data": imagen_b64}},
