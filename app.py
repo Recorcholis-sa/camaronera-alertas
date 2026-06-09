@@ -73,7 +73,8 @@ def procesar():
         print("Llamando a IA...")
         datos = extraer_con_ia(imagen_b64, mime)
         print(f"IA respondio: {len(datos.get('piscinas',[]))} piscinas")
-        if campo and not datos.get("sector"):
+        # Siempre usar el campo seleccionado por el parametrista
+        if campo:
             datos["sector"] = campo
         alertas = evaluar_y_notificar(datos, campo)
         return jsonify({
