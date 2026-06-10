@@ -44,16 +44,14 @@ def procesar():
         print(f"IA respondio: {len(datos.get('piscinas',[]))} piscinas")
         if campo:
             datos["sector"] = campo
-        import threading
-        t = threading.Thread(target=evaluar_y_notificar, args=(datos, campo))
-        t.daemon = True
-        t.start()
+        # Llamar directamente (sin hilo) para que los emails salgan antes de responder
+        enviados = evaluar_y_notificar(datos, campo)
         return jsonify({
             "ok": True,
             "fecha": datos.get("fecha"),
             "sector": datos.get("sector"),
             "piscinas": datos.get("piscinas", []),
-            "alertas_enviadas": "enviando..."
+            "alertas_enviadas": enviados
         })
     except Exception as e:
         print(f"ERROR: {str(e)}")
@@ -126,6 +124,8 @@ def evaluar_y_notificar(datos, campo_param):
 
 def enviar_email_emailjs(dest_email, dest_nombre, asunto, cuerpo):
     try:
+        print(f"Enviando EmailJS a {dest_email}...")
+        print(f"  service={EMAILJS_SERVICE} template={EMAILJS_TEMPLATE} public={EMAILJS_PUBLIC[:6]}... private={'SI' if EMAILJS_PRIVATE else 'NO'}")
         payload = {
             "service_id":  EMAILJS_SERVICE,
             "template_id": EMAILJS_TEMPLATE,
@@ -148,6 +148,9 @@ def enviar_email_emailjs(dest_email, dest_nombre, asunto, cuerpo):
             status = r.status
             body   = r.read().decode()
         print(f"EmailJS -> {dest_email} | status: {status} | resp: {body}")
+    except urllib.error.HTTPError as e:
+        body = e.read().decode()
+        print(f"EmailJS HTTP error ({dest_email}): {e.code} {e.reason} | {body}")
     except Exception as e:
         print(f"EmailJS error ({dest_email}): {e}")
 
