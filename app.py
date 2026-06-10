@@ -24,7 +24,12 @@ def leer_usuarios():
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("index.html",
+        emailjs_service  = os.environ.get("EMAILJS_SERVICE", ""),
+        emailjs_template = os.environ.get("EMAILJS_TEMPLATE", ""),
+        emailjs_public   = os.environ.get("EMAILJS_PUBLIC", ""),
+        usuarios_json    = USUARIOS_JSON )
+¿Puedes compartir el contenido del templates/index.html para ver exactamente qué variables necesita?Sonnet 4.6 Low
 
 @app.route("/api/campos", methods=["GET"])
 def get_campos():
