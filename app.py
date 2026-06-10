@@ -128,12 +128,12 @@ def enviar_email(dest, asunto, cuerpo):
         msg["To"]   = dest
         msg["Subject"] = asunto
         msg.attach(MIMEText(cuerpo, "plain", "utf-8"))
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as s:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=20) as s:
             s.login(EMAIL_REMITENTE, EMAIL_PASSWORD)
             s.sendmail(EMAIL_REMITENTE, dest, msg.as_string())
         print(f"Email enviado a {dest}")
     except Exception as e:
-        print(f"Email error: {e}")
+        print(f"Email error (no critico): {e}")
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
