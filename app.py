@@ -33,7 +33,7 @@ def get_campos():
 @app.route("/api/procesar", methods=["POST"])
 def procesar():
     if "foto" not in request.files:
-        return jsonify({"error": "No se recibió foto"}), 400
+        return jsonify({"error": "No se recibio foto"}), 400
     archivo = request.files["foto"]
     campo   = request.form.get("campo", "")
     imagen_b64 = base64.b64encode(archivo.read()).decode()
@@ -44,13 +44,17 @@ def procesar():
         print(f"IA respondio: {len(datos.get('piscinas',[]))} piscinas")
         if campo:
             datos["sector"] = campo
-        alertas = evaluar_y_notificar(datos, campo)
+        # Enviar emails en hilo separado para no bloquear respuesta
+        import threading
+        t = threading.Thread(target=evaluar_y_notificar, args=(datos, campo))
+        t.daemon = True
+        t.start()
         return jsonify({
             "ok": True,
             "fecha": datos.get("fecha"),
             "sector": datos.get("sector"),
             "piscinas": datos.get("piscinas", []),
-            "alertas_enviadas": alertas
+            "alertas_enviadas": "enviando..."
         })
     except Exception as e:
         print(f"ERROR: {str(e)}")
