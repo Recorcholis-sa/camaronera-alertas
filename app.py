@@ -1,4 +1,4 @@
-import os, json, base64, urllib.request, urllib.parse
+import os, json, base64, urllib.request
 from flask import Flask, request, jsonify, render_template
 
 app = Flask(__name__)
@@ -8,6 +8,7 @@ USUARIOS_JSON     = os.environ.get("USUARIOS_JSON", "[]")
 EMAILJS_SERVICE   = os.environ.get("EMAILJS_SERVICE", "")
 EMAILJS_TEMPLATE  = os.environ.get("EMAILJS_TEMPLATE", "")
 EMAILJS_PUBLIC    = os.environ.get("EMAILJS_PUBLIC", "")
+EMAILJS_PRIVATE   = os.environ.get("EMAILJS_PRIVATE", "")
 O2_CRITICO        = 3.0
 O2_VIGILANCIA     = 3.5
 
@@ -129,6 +130,7 @@ def enviar_email_emailjs(dest_email, dest_nombre, asunto, cuerpo):
             "service_id":  EMAILJS_SERVICE,
             "template_id": EMAILJS_TEMPLATE,
             "user_id":     EMAILJS_PUBLIC,
+            "accessToken": EMAILJS_PRIVATE,
             "template_params": {
                 "to_email": dest_email,
                 "name":     dest_nombre or "Equipo Camaronera",
