@@ -1,14 +1,13 @@
-import os, json, base64, smtplib, urllib.request, urllib.parse
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import os, json, base64, urllib.request, urllib.parse
 from flask import Flask, request, jsonify, render_template
 
 app = Flask(__name__)
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
-EMAIL_REMITENTE   = os.environ.get("EMAIL_REMITENTE", "")
-EMAIL_PASSWORD    = os.environ.get("EMAIL_PASSWORD", "")
 USUARIOS_JSON     = os.environ.get("USUARIOS_JSON", "[]")
+EMAILJS_SERVICE   = os.environ.get("EMAILJS_SERVICE", "")
+EMAILJS_TEMPLATE  = os.environ.get("EMAILJS_TEMPLATE", "")
+EMAILJS_PUBLIC    = os.environ.get("EMAILJS_PUBLIC", "")
 O2_CRITICO        = 3.0
 O2_VIGILANCIA     = 3.5
 
@@ -24,12 +23,7 @@ def leer_usuarios():
 
 @app.route("/")
 def index():
-    return render_template("index.html",
-        emailjs_service  = os.environ.get("EMAILJS_SERVICE", ""),
-        emailjs_template = os.environ.get("EMAILJS_TEMPLATE", ""),
-        emailjs_public   = os.environ.get("EMAILJS_PUBLIC", ""),
-        usuarios_json    = USUARIOS_JSON )
-¿Puedes compartir el contenido del templates/index.html para ver exactamente qué variables necesita?Sonnet 4.6 Low
+    return render_template("index.html")
 
 @app.route("/api/campos", methods=["GET"])
 def get_campos():
@@ -49,7 +43,6 @@ def procesar():
         print(f"IA respondio: {len(datos.get('piscinas',[]))} piscinas")
         if campo:
             datos["sector"] = campo
-        # Enviar emails en hilo separado para no bloquear respuesta
         import threading
         t = threading.Thread(target=evaluar_y_notificar, args=(datos, campo))
         t.daemon = True
@@ -125,24 +118,36 @@ def evaluar_y_notificar(datos, campo_param):
         cuerpo = f"{nivel}\nSector: {sector} | Fecha: {fecha}\n{'='*40}\n\n"
         for a in alertas:
             cuerpo += f"Piscina {a['ps']} - O2 AM: {a.get('oxigeno_am','--')} | O2 PM: {a.get('oxigeno_pm','--')} mg/L\n"
-        if u.get("email") and EMAIL_REMITENTE:
-            enviar_email(u["email"], asunto, cuerpo)
+        enviar_email_emailjs(u.get("email"), u.get("nombre",""), asunto, cuerpo)
         enviados += 1
+    print(f"Emails enviados: {enviados}")
     return enviados
 
-def enviar_email(dest, asunto, cuerpo):
+def enviar_email_emailjs(dest_email, dest_nombre, asunto, cuerpo):
     try:
-        msg = MIMEMultipart()
-        msg["From"] = EMAIL_REMITENTE
-        msg["To"]   = dest
-        msg["Subject"] = asunto
-        msg.attach(MIMEText(cuerpo, "plain", "utf-8"))
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=20) as s:
-            s.login(EMAIL_REMITENTE, EMAIL_PASSWORD)
-            s.sendmail(EMAIL_REMITENTE, dest, msg.as_string())
-        print(f"Email enviado a {dest}")
+        payload = {
+            "service_id":  EMAILJS_SERVICE,
+            "template_id": EMAILJS_TEMPLATE,
+            "user_id":     EMAILJS_PUBLIC,
+            "template_params": {
+                "to_email": dest_email,
+                "name":     dest_nombre or "Equipo Camaronera",
+                "subject":  asunto,
+                "message":  cuerpo,
+                "email":    dest_email
+            }
+        }
+        req = urllib.request.Request(
+            "https://api.emailjs.com/api/v1.0/email/send",
+            data=json.dumps(payload).encode(),
+            headers={"Content-Type": "application/json", "origin": "http://localhost"}
+        )
+        with urllib.request.urlopen(req, timeout=20) as r:
+            status = r.status
+            body   = r.read().decode()
+        print(f"EmailJS -> {dest_email} | status: {status} | resp: {body}")
     except Exception as e:
-        print(f"Email error (no critico): {e}")
+        print(f"EmailJS error ({dest_email}): {e}")
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
