@@ -1,4 +1,5 @@
-import os, json, base64, urllib.request
+import os, json, base64, urllib.request, sqlite3
+from datetime import datetime
 from flask import Flask, request, jsonify, render_template
 
 app = Flask(__name__)
@@ -11,13 +12,61 @@ O2_CRITICO        = 3.0
 O2_VIGILANCIA     = 3.5
 
 USUARIOS_FILE = "/tmp/usuarios.json"
+DB_PATH       = "/tmp/camaronera.db"
 
 CAMPOS = ["Rolesa 1","Rolesa 2","Pantrusko 1","Pantrusko 2",
           "Caesa 1","Caesa 2","Fimasa 1","Fimasa 2","Fimasa 3",
           "Recorcholis 1","Recorcholis 2"]
 
+# ── Base de datos ──────────────────────────────────────────
+def init_db():
+    con = sqlite3.connect(DB_PATH)
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS lecturas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            fecha TEXT,
+            sector TEXT,
+            piscina TEXT,
+            oxigeno_am REAL,
+            oxigeno_pm REAL,
+            temp_am REAL,
+            temp_pm REAL,
+            created_at TEXT
+        )
+    """)
+    con.commit()
+    con.close()
+
+init_db()
+
+def guardar_lecturas(sector, fecha, piscinas):
+    con = sqlite3.connect(DB_PATH)
+    now = datetime.utcnow().isoformat()
+    for p in piscinas:
+        # Verificar si ya existe lectura para ese sector/fecha/piscina
+        cur = con.execute(
+            "SELECT id FROM lecturas WHERE sector=? AND fecha=? AND piscina=?",
+            (sector, fecha, p["ps"])
+        )
+        if cur.fetchone():
+            con.execute("""
+                UPDATE lecturas SET oxigeno_am=?, oxigeno_pm=?, temp_am=?, temp_pm=?, created_at=?
+                WHERE sector=? AND fecha=? AND piscina=?
+            """, (p.get("oxigeno_am"), p.get("oxigeno_pm"),
+                  p.get("temp_am"), p.get("temp_pm"), now,
+                  sector, fecha, p["ps"]))
+        else:
+            con.execute("""
+                INSERT INTO lecturas (fecha, sector, piscina, oxigeno_am, oxigeno_pm, temp_am, temp_pm, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (fecha, sector, p["ps"],
+                  p.get("oxigeno_am"), p.get("oxigeno_pm"),
+                  p.get("temp_am"), p.get("temp_pm"), now))
+    con.commit()
+    con.close()
+
+# ── Usuarios ───────────────────────────────────────────────
 def leer_usuarios():
-    # Primero intenta leer del archivo dinámico
     usuarios = []
     try:
         if os.path.exists(USUARIOS_FILE):
@@ -25,7 +74,6 @@ def leer_usuarios():
                 usuarios = json.load(f)
     except:
         pass
-    # Luego agrega los de la variable de entorno (sin duplicar emails)
     try:
         base = json.loads(USUARIOS_JSON)
         emails_existentes = {u["email"] for u in usuarios}
@@ -40,6 +88,7 @@ def guardar_usuarios(usuarios):
     with open(USUARIOS_FILE, "w") as f:
         json.dump(usuarios, f, ensure_ascii=False)
 
+# ── Rutas ──────────────────────────────────────────────────
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -52,42 +101,25 @@ def get_campos():
 def registrar():
     try:
         data = request.get_json()
-        rol     = data.get("rol", "")
-        nombre  = data.get("nombre", "").strip()
-        email   = data.get("email", "").strip().lower()
-        whatsapp= data.get("whatsapp", "").strip()
-        campos  = data.get("campos", [])
-
+        rol      = data.get("rol", "")
+        nombre   = data.get("nombre", "").strip()
+        email    = data.get("email", "").strip().lower()
+        whatsapp = data.get("whatsapp", "").strip()
+        campos   = data.get("campos", [])
         if not nombre or not email:
             return jsonify({"ok": False, "error": "Nombre y email son requeridos"}), 400
-
-        # Gerencia recibe todos los campos
         if rol == "gerencia":
             campos = CAMPOS
-
         usuarios = leer_usuarios()
-
-        # Verificar si ya existe
         for u in usuarios:
             if u.get("email") == email:
-                # Actualizar datos
                 u["nombre"] = nombre
                 u["whatsapp"] = whatsapp
                 u["campos"] = campos
                 u["rol"] = rol
                 guardar_usuarios([u2 for u2 in usuarios if u2.get("email") != email] + [u])
                 return jsonify({"ok": True, "mensaje": f"Perfil actualizado para {nombre}"})
-
-        # Nuevo usuario
-        nuevo = {
-            "nombre": nombre,
-            "email": email,
-            "whatsapp": whatsapp,
-            "campos": campos,
-            "rol": rol
-        }
-        usuarios.append(nuevo)
-        # Guardar solo los del archivo (no los de la variable de entorno)
+        nuevo = {"nombre": nombre, "email": email, "whatsapp": whatsapp, "campos": campos, "rol": rol}
         try:
             existentes = []
             if os.path.exists(USUARIOS_FILE):
@@ -97,7 +129,6 @@ def registrar():
             existentes = []
         existentes.append(nuevo)
         guardar_usuarios(existentes)
-
         return jsonify({"ok": True, "mensaje": f"Registro exitoso. Bienvenido {nombre}!"})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
@@ -116,6 +147,8 @@ def procesar():
         print(f"IA respondio: {len(datos.get('piscinas',[]))} piscinas")
         if campo:
             datos["sector"] = campo
+        # Guardar en base de datos
+        guardar_lecturas(datos.get("sector", campo), datos.get("fecha", ""), datos.get("piscinas", []))
         enviados = evaluar_y_notificar(datos, campo)
         return jsonify({
             "ok": True,
@@ -128,6 +161,47 @@ def procesar():
         print(f"ERROR: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
+@app.route("/api/historico", methods=["GET"])
+def historico():
+    try:
+        sector  = request.args.get("sector", "")
+        piscina = request.args.get("piscina", "")
+        dias    = int(request.args.get("dias", 7))
+        if not sector or not piscina:
+            return jsonify({"error": "sector y piscina son requeridos"}), 400
+        con = sqlite3.connect(DB_PATH)
+        cur = con.execute("""
+            SELECT fecha, oxigeno_am, oxigeno_pm, temp_am, temp_pm
+            FROM lecturas
+            WHERE sector=? AND piscina=?
+            ORDER BY created_at DESC
+            LIMIT ?
+        """, (sector, piscina, dias))
+        rows = cur.fetchall()
+        con.close()
+        datos = [{"fecha": r[0], "oxigeno_am": r[1], "oxigeno_pm": r[2],
+                  "temp_am": r[3], "temp_pm": r[4]} for r in rows]
+        datos.reverse()
+        return jsonify({"ok": True, "datos": datos, "sector": sector, "piscina": piscina})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/piscinas", methods=["GET"])
+def get_piscinas():
+    try:
+        sector = request.args.get("sector", "")
+        con = sqlite3.connect(DB_PATH)
+        cur = con.execute(
+            "SELECT DISTINCT piscina FROM lecturas WHERE sector=? ORDER BY piscina",
+            (sector,)
+        )
+        piscinas = [r[0] for r in cur.fetchall()]
+        con.close()
+        return jsonify({"piscinas": piscinas})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ── IA ─────────────────────────────────────────────────────
 def extraer_con_ia(imagen_b64, mime):
     payload = {
         "model": "claude-haiku-4-5-20251001",
@@ -155,6 +229,7 @@ def extraer_con_ia(imagen_b64, mime):
         text = text[start:end]
     return json.loads(text)
 
+# ── Alertas ────────────────────────────────────────────────
 def estado_o2(v):
     if v is None: return "normal"
     return "critico" if v < O2_CRITICO else "vigilancia" if v < O2_VIGILANCIA else "normal"
@@ -215,7 +290,7 @@ def enviar_email_postmark(dest_email, dest_nombre, asunto, cuerpo):
         with urllib.request.urlopen(req, timeout=20) as r:
             status = r.status
             body   = r.read().decode()
-        print(f"Postmark OK -> {dest_email} | status: {status} | {body}")
+        print(f"Postmark OK -> {dest_email} | status: {status}")
     except urllib.error.HTTPError as e:
         body = e.read().decode()
         print(f"Postmark error ({dest_email}): {e.code} | {body}")
