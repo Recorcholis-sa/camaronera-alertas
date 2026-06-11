@@ -1,5 +1,5 @@
-import os, json, base64, urllib.request, sqlite3
-from datetime import datetime, timedelta
+import os, json, base64, urllib.request
+from datetime import datetime
 from flask import Flask, request, jsonify, render_template
 
 app = Flask(__name__)
@@ -8,22 +8,27 @@ ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 USUARIOS_JSON     = os.environ.get("USUARIOS_JSON", "[]")
 POSTMARK_TOKEN    = os.environ.get("POSTMARK_TOKEN", "")
 EMAIL_REMITENTE   = os.environ.get("EMAIL_REMITENTE", "biologo4@docapes.com")
+DATABASE_URL      = os.environ.get("DATABASE_URL", "")
 O2_CRITICO        = 3.0
 O2_VIGILANCIA     = 3.5
-
-USUARIOS_FILE = "/tmp/usuarios.json"
-DB_PATH       = "/tmp/camaronera.db"
 
 CAMPOS = ["Rolesa 1","Rolesa 2","Pantrusko 1","Pantrusko 2",
           "Caesa 1","Caesa 2","Fimasa 1","Fimasa 2","Fimasa 3",
           "Recorcholis 1","Recorcholis 2"]
 
-# ── Base de datos ──────────────────────────────────────────
+# ── Base de datos PostgreSQL ───────────────────────────────
+import psycopg2
+from psycopg2.extras import RealDictCursor
+
+def get_conn():
+    return psycopg2.connect(DATABASE_URL)
+
 def init_db():
-    con = sqlite3.connect(DB_PATH)
-    con.execute("""
+    con = get_conn()
+    cur = con.cursor()
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS lecturas (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             fecha TEXT,
             sector TEXT,
             piscina TEXT,
@@ -35,69 +40,91 @@ def init_db():
             created_at TEXT
         )
     """)
-    # Migración: agregar columna corrida si no existe
-    try:
-        con.execute("ALTER TABLE lecturas ADD COLUMN corrida INTEGER DEFAULT 1")
-        con.commit()
-    except:
-        pass
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS usuarios (
+            id SERIAL PRIMARY KEY,
+            nombre TEXT,
+            email TEXT UNIQUE,
+            whatsapp TEXT,
+            campos TEXT,
+            rol TEXT,
+            created_at TEXT
+        )
+    """)
     con.commit()
+    cur.close()
     con.close()
 
-init_db()
+try:
+    init_db()
+    print("DB inicializada OK")
+except Exception as e:
+    print(f"DB init error: {e}")
 
-def get_corrida_actual(con, sector, piscina):
-    """Devuelve el número de corrida actual y detecta si hay que crear una nueva."""
-    cur = con.execute("""
+def get_corrida_actual(cur, sector, piscina):
+    cur.execute("""
         SELECT corrida, created_at FROM lecturas
-        WHERE sector=? AND piscina=?
+        WHERE sector=%s AND piscina=%s
         ORDER BY created_at DESC LIMIT 1
     """, (sector, piscina))
     row = cur.fetchone()
     if not row:
-        return 1  # Primera corrida
+        return 1
     ultima_corrida = row[0]
     ultima_fecha   = datetime.fromisoformat(row[1])
     dias_sin_reporte = (datetime.utcnow() - ultima_fecha).days
     if dias_sin_reporte > 2:
-        return ultima_corrida + 1  # Nueva corrida
+        return ultima_corrida + 1
     return ultima_corrida
 
 def guardar_lecturas(sector, fecha, piscinas):
-    con = sqlite3.connect(DB_PATH)
+    con = get_conn()
+    cur = con.cursor()
     now = datetime.utcnow().isoformat()
     for p in piscinas:
-        corrida = get_corrida_actual(con, sector, p["ps"])
-        cur = con.execute(
-            "SELECT id FROM lecturas WHERE sector=? AND fecha=? AND piscina=? AND corrida=?",
+        corrida = get_corrida_actual(cur, sector, p["ps"])
+        cur.execute(
+            "SELECT id FROM lecturas WHERE sector=%s AND fecha=%s AND piscina=%s AND corrida=%s",
             (sector, fecha, p["ps"], corrida)
         )
         if cur.fetchone():
-            con.execute("""
-                UPDATE lecturas SET oxigeno_am=?, oxigeno_pm=?, temp_am=?, temp_pm=?, created_at=?
-                WHERE sector=? AND fecha=? AND piscina=? AND corrida=?
+            cur.execute("""
+                UPDATE lecturas SET oxigeno_am=%s, oxigeno_pm=%s, temp_am=%s, temp_pm=%s, created_at=%s
+                WHERE sector=%s AND fecha=%s AND piscina=%s AND corrida=%s
             """, (p.get("oxigeno_am"), p.get("oxigeno_pm"),
                   p.get("temp_am"), p.get("temp_pm"), now,
                   sector, fecha, p["ps"], corrida))
         else:
-            con.execute("""
+            cur.execute("""
                 INSERT INTO lecturas (fecha, sector, piscina, corrida, oxigeno_am, oxigeno_pm, temp_am, temp_pm, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (fecha, sector, p["ps"], corrida,
                   p.get("oxigeno_am"), p.get("oxigeno_pm"),
                   p.get("temp_am"), p.get("temp_pm"), now))
     con.commit()
+    cur.close()
     con.close()
 
 # ── Usuarios ───────────────────────────────────────────────
 def leer_usuarios():
     usuarios = []
+    # Primero de PostgreSQL
     try:
-        if os.path.exists(USUARIOS_FILE):
-            with open(USUARIOS_FILE, "r") as f:
-                usuarios = json.load(f)
-    except:
-        pass
+        con = get_conn()
+        cur = con.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT * FROM usuarios")
+        rows = cur.fetchall()
+        cur.close()
+        con.close()
+        for u in rows:
+            try:
+                u["campos"] = json.loads(u["campos"])
+            except:
+                u["campos"] = []
+            usuarios.append(dict(u))
+    except Exception as e:
+        print(f"Error leyendo usuarios DB: {e}")
+    # Luego los de USUARIOS_JSON (sin duplicar)
     try:
         base = json.loads(USUARIOS_JSON)
         emails_existentes = {u["email"] for u in usuarios}
@@ -108,9 +135,26 @@ def leer_usuarios():
         pass
     return usuarios
 
-def guardar_usuarios(usuarios):
-    with open(USUARIOS_FILE, "w") as f:
-        json.dump(usuarios, f, ensure_ascii=False)
+def guardar_usuario_db(nombre, email, whatsapp, campos, rol):
+    try:
+        con = get_conn()
+        cur = con.cursor()
+        now = datetime.utcnow().isoformat()
+        campos_json = json.dumps(campos)
+        cur.execute("""
+            INSERT INTO usuarios (nombre, email, whatsapp, campos, rol, created_at)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT (email) DO UPDATE SET
+                nombre=%s, whatsapp=%s, campos=%s, rol=%s, created_at=%s
+        """, (nombre, email, whatsapp, campos_json, rol, now,
+              nombre, whatsapp, campos_json, rol, now))
+        con.commit()
+        cur.close()
+        con.close()
+        return True
+    except Exception as e:
+        print(f"Error guardando usuario: {e}")
+        return False
 
 # ── Rutas ──────────────────────────────────────────────────
 @app.route("/")
@@ -124,7 +168,7 @@ def get_campos():
 @app.route("/api/registrar", methods=["POST"])
 def registrar():
     try:
-        data = request.get_json()
+        data     = request.get_json()
         rol      = data.get("rol", "")
         nombre   = data.get("nombre", "").strip()
         email    = data.get("email", "").strip().lower()
@@ -134,26 +178,11 @@ def registrar():
             return jsonify({"ok": False, "error": "Nombre y email son requeridos"}), 400
         if rol == "gerencia":
             campos = CAMPOS
-        usuarios = leer_usuarios()
-        for u in usuarios:
-            if u.get("email") == email:
-                u["nombre"] = nombre
-                u["whatsapp"] = whatsapp
-                u["campos"] = campos
-                u["rol"] = rol
-                guardar_usuarios([u2 for u2 in usuarios if u2.get("email") != email] + [u])
-                return jsonify({"ok": True, "mensaje": f"Perfil actualizado para {nombre}"})
-        nuevo = {"nombre": nombre, "email": email, "whatsapp": whatsapp, "campos": campos, "rol": rol}
-        try:
-            existentes = []
-            if os.path.exists(USUARIOS_FILE):
-                with open(USUARIOS_FILE, "r") as f:
-                    existentes = json.load(f)
-        except:
-            existentes = []
-        existentes.append(nuevo)
-        guardar_usuarios(existentes)
-        return jsonify({"ok": True, "mensaje": f"Registro exitoso. Bienvenido {nombre}!"})
+        ok = guardar_usuario_db(nombre, email, whatsapp, campos, rol)
+        if ok:
+            return jsonify({"ok": True, "mensaje": f"Registro exitoso. Bienvenido {nombre}!"})
+        else:
+            return jsonify({"ok": False, "error": "Error al guardar"}), 500
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
@@ -186,22 +215,20 @@ def procesar():
 
 @app.route("/api/corridas", methods=["GET"])
 def get_corridas():
-    """Devuelve lista de corridas disponibles para una piscina."""
     try:
         sector  = request.args.get("sector", "")
         piscina = request.args.get("piscina", "")
         if not sector or not piscina:
             return jsonify({"error": "sector y piscina requeridos"}), 400
-        con = sqlite3.connect(DB_PATH)
-        cur = con.execute("""
+        con = get_conn()
+        cur = con.cursor(cursor_factory=RealDictCursor)
+        cur.execute("""
             SELECT corrida, MIN(fecha) as inicio, MAX(fecha) as fin, COUNT(*) as dias
-            FROM lecturas
-            WHERE sector=? AND piscina=?
-            GROUP BY corrida
-            ORDER BY corrida DESC
+            FROM lecturas WHERE sector=%s AND piscina=%s
+            GROUP BY corrida ORDER BY corrida DESC
         """, (sector, piscina))
-        corridas = [{"corrida": r[0], "inicio": r[1], "fin": r[2], "dias": r[3]} for r in cur.fetchall()]
-        con.close()
+        corridas = [dict(r) for r in cur.fetchall()]
+        cur.close(); con.close()
         return jsonify({"corridas": corridas})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -215,32 +242,26 @@ def historico():
         corrida = request.args.get("corrida", None)
         if not sector or not piscina:
             return jsonify({"error": "sector y piscina son requeridos"}), 400
-        con = sqlite3.connect(DB_PATH)
+        con = get_conn()
+        cur = con.cursor(cursor_factory=RealDictCursor)
         if corrida:
-            # Filtrar por corrida específica
-            cur = con.execute("""
+            cur.execute("""
                 SELECT fecha, oxigeno_am, oxigeno_pm, temp_am, temp_pm, corrida
-                FROM lecturas
-                WHERE sector=? AND piscina=? AND corrida=?
+                FROM lecturas WHERE sector=%s AND piscina=%s AND corrida=%s
                 ORDER BY created_at ASC
             """, (sector, piscina, int(corrida)))
         else:
-            # Corrida más reciente
-            cur_c = con.execute("""
-                SELECT MAX(corrida) FROM lecturas WHERE sector=? AND piscina=?
-            """, (sector, piscina))
-            max_corrida = cur_c.fetchone()[0] or 1
-            cur = con.execute("""
+            cur.execute("SELECT MAX(corrida) as mc FROM lecturas WHERE sector=%s AND piscina=%s", (sector, piscina))
+            row = cur.fetchone()
+            max_corrida = row["mc"] if row and row["mc"] else 1
+            cur.execute("""
                 SELECT fecha, oxigeno_am, oxigeno_pm, temp_am, temp_pm, corrida
-                FROM lecturas
-                WHERE sector=? AND piscina=? AND corrida=?
-                ORDER BY created_at ASC
-                LIMIT ?
+                FROM lecturas WHERE sector=%s AND piscina=%s AND corrida=%s
+                ORDER BY created_at ASC LIMIT %s
             """, (sector, piscina, max_corrida, dias))
         rows = cur.fetchall()
-        con.close()
-        datos = [{"fecha": r[0], "oxigeno_am": r[1], "oxigeno_pm": r[2],
-                  "temp_am": r[3], "temp_pm": r[4], "corrida": r[5]} for r in rows]
+        cur.close(); con.close()
+        datos = [dict(r) for r in rows]
         corrida_num = datos[0]["corrida"] if datos else 1
         return jsonify({"ok": True, "datos": datos, "sector": sector, "piscina": piscina, "corrida": corrida_num})
     except Exception as e:
@@ -250,13 +271,11 @@ def historico():
 def get_piscinas():
     try:
         sector = request.args.get("sector", "")
-        con = sqlite3.connect(DB_PATH)
-        cur = con.execute(
-            "SELECT DISTINCT piscina FROM lecturas WHERE sector=? ORDER BY piscina",
-            (sector,)
-        )
+        con = get_conn()
+        cur = con.cursor()
+        cur.execute("SELECT DISTINCT piscina FROM lecturas WHERE sector=%s ORDER BY piscina", (sector,))
         piscinas = [r[0] for r in cur.fetchall()]
-        con.close()
+        cur.close(); con.close()
         return jsonify({"piscinas": piscinas})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
