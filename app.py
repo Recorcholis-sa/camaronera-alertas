@@ -274,8 +274,13 @@ def get_piscinas():
         con = get_conn()
         cur = con.cursor()
         cur.execute("SELECT DISTINCT piscina FROM lecturas WHERE sector=%s ORDER BY piscina", (sector,))
-        piscinas = [r[0] for r in cur.fetchall()]
+        piscinas_raw = [r[0] for r in cur.fetchall()]
         cur.close(); con.close()
+        # Ordenar numéricamente
+        def sort_key(p):
+            try: return (0, int(p))
+            except: return (1, p)
+        piscinas = sorted(piscinas_raw, key=sort_key)
         return jsonify({"piscinas": piscinas})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
