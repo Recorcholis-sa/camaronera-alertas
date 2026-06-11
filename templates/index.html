@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- saved from url=(0047)file:///C:/Users/Usuario/Downloads/index_4.html -->
+<!-- saved from url=(0047)file:///C:/Users/Usuario/Downloads/index_5.html -->
 <html lang="es"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -184,7 +184,7 @@ td{padding:8px;border-bottom:1px solid #f3f4f6;color:#111}
       <div style="font-size:40px">📸</div><p>Toca para subir la foto</p><small>Foto del block de parámetros diarios</small>
     </div>
     <input type="file" id="fileInput" accept="image/*" capture="environment" onchange="handleFile(this.files[0])">
-    <div class="preview" id="previewWrap"><img id="previewImg" src="file:///C:/Users/Usuario/Downloads/index_4.html" alt="preview"></div>
+    <div class="preview" id="previewWrap"><img id="previewImg" src="file:///C:/Users/Usuario/Downloads/index_5.html" alt="preview"></div>
     <div id="foto-estado"></div>
     <button class="btn btn-green" id="btnEnviar" onclick="enviarFoto()" disabled="">📤 Procesar y enviar alertas</button>
     <button class="btn btn-outline" id="btnNueva" onclick="resetFoto()" style="display:none">📷 Subir otra foto</button>
@@ -239,6 +239,7 @@ let detallePiscina = null;
 let detallePeriodo = 7;
 let detalleCorrida = null;
 let todasCorridas = [];
+let charts = {};
 let histOrigen = null; // 'g' o 'b'
 
 // ── Navegación ──────────────────────────────────────────────
