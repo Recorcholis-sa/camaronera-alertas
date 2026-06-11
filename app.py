@@ -5,8 +5,8 @@ app = Flask(__name__)
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 USUARIOS_JSON     = os.environ.get("USUARIOS_JSON", "[]")
-RESEND_API_KEY    = os.environ.get("RESEND_API_KEY", "")
-EMAIL_REMITENTE   = os.environ.get("EMAIL_REMITENTE", "")
+POSTMARK_TOKEN    = os.environ.get("POSTMARK_TOKEN", "")
+EMAIL_REMITENTE   = os.environ.get("EMAIL_REMITENTE", "biologo4@docapes.com")
 O2_CRITICO        = 3.0
 O2_VIGILANCIA     = 3.5
 
@@ -114,37 +114,39 @@ def evaluar_y_notificar(datos, campo_param):
         cuerpo = f"{nivel}\nSector: {sector} | Fecha: {fecha}\n{'='*40}\n\n"
         for a in alertas:
             cuerpo += f"Piscina {a['ps']} - O2 AM: {a.get('oxigeno_am','--')} | O2 PM: {a.get('oxigeno_pm','--')} mg/L\n"
-        enviar_email_resend(u.get("email"), u.get("nombre",""), asunto, cuerpo)
+        enviar_email_postmark(u.get("email"), u.get("nombre",""), asunto, cuerpo)
         enviados += 1
     print(f"Emails enviados: {enviados}")
     return enviados
 
-def enviar_email_resend(dest_email, dest_nombre, asunto, cuerpo):
+def enviar_email_postmark(dest_email, dest_nombre, asunto, cuerpo):
     try:
-        print(f"Enviando Resend a {dest_email}...")
+        print(f"Enviando Postmark a {dest_email}...")
         payload = {
-            "from": "Camaronera Alertas <onboarding@resend.dev>",
-            "to": [dest_email],
-            "subject": asunto,
-            "text": cuerpo
+            "From": EMAIL_REMITENTE,
+            "To": dest_email,
+            "Subject": asunto,
+            "TextBody": cuerpo,
+            "MessageStream": "outbound"
         }
         req = urllib.request.Request(
-            "https://api.resend.com/emails",
+            "https://api.postmarkapp.com/email",
             data=json.dumps(payload).encode(),
             headers={
                 "Content-Type": "application/json",
-                "Authorization": f"Bearer {RESEND_API_KEY}"
+                "Accept": "application/json",
+                "X-Postmark-Server-Token": POSTMARK_TOKEN
             }
         )
         with urllib.request.urlopen(req, timeout=20) as r:
             status = r.status
             body   = r.read().decode()
-        print(f"Resend OK -> {dest_email} | status: {status} | {body}")
+        print(f"Postmark OK -> {dest_email} | status: {status} | {body}")
     except urllib.error.HTTPError as e:
         body = e.read().decode()
-        print(f"Resend error ({dest_email}): {e.code} | {body}")
+        print(f"Postmark error ({dest_email}): {e.code} | {body}")
     except Exception as e:
-        print(f"Resend error ({dest_email}): {e}")
+        print(f"Postmark error ({dest_email}): {e}")
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
