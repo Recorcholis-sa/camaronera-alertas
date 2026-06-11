@@ -1,14 +1,12 @@
-import os, json, base64, smtplib, urllib.request
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import os, json, base64, urllib.request
 from flask import Flask, request, jsonify, render_template
 
 app = Flask(__name__)
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
-EMAIL_REMITENTE   = os.environ.get("EMAIL_REMITENTE", "")
-EMAIL_PASSWORD    = os.environ.get("EMAIL_PASSWORD", "")
 USUARIOS_JSON     = os.environ.get("USUARIOS_JSON", "[]")
+RESEND_API_KEY    = os.environ.get("RESEND_API_KEY", "")
+EMAIL_REMITENTE   = os.environ.get("EMAIL_REMITENTE", "")
 O2_CRITICO        = 3.0
 O2_VIGILANCIA     = 3.5
 
@@ -116,25 +114,37 @@ def evaluar_y_notificar(datos, campo_param):
         cuerpo = f"{nivel}\nSector: {sector} | Fecha: {fecha}\n{'='*40}\n\n"
         for a in alertas:
             cuerpo += f"Piscina {a['ps']} - O2 AM: {a.get('oxigeno_am','--')} | O2 PM: {a.get('oxigeno_pm','--')} mg/L\n"
-        enviar_email(u.get("email"), asunto, cuerpo)
+        enviar_email_resend(u.get("email"), u.get("nombre",""), asunto, cuerpo)
         enviados += 1
     print(f"Emails enviados: {enviados}")
     return enviados
 
-def enviar_email(dest, asunto, cuerpo):
+def enviar_email_resend(dest_email, dest_nombre, asunto, cuerpo):
     try:
-        print(f"Enviando SMTP a {dest}...")
-        msg = MIMEMultipart()
-        msg["From"]    = EMAIL_REMITENTE
-        msg["To"]      = dest
-        msg["Subject"] = asunto
-        msg.attach(MIMEText(cuerpo, "plain", "utf-8"))
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=20) as s:
-            s.login(EMAIL_REMITENTE, EMAIL_PASSWORD)
-            s.sendmail(EMAIL_REMITENTE, dest, msg.as_string())
-        print(f"Email enviado OK a {dest}")
+        print(f"Enviando Resend a {dest_email}...")
+        payload = {
+            "from": "Camaronera Alertas <onboarding@resend.dev>",
+            "to": [dest_email],
+            "subject": asunto,
+            "text": cuerpo
+        }
+        req = urllib.request.Request(
+            "https://api.resend.com/emails",
+            data=json.dumps(payload).encode(),
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {RESEND_API_KEY}"
+            }
+        )
+        with urllib.request.urlopen(req, timeout=20) as r:
+            status = r.status
+            body   = r.read().decode()
+        print(f"Resend OK -> {dest_email} | status: {status} | {body}")
+    except urllib.error.HTTPError as e:
+        body = e.read().decode()
+        print(f"Resend error ({dest_email}): {e.code} | {body}")
     except Exception as e:
-        print(f"SMTP error ({dest}): {e}")
+        print(f"Resend error ({dest_email}): {e}")
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
