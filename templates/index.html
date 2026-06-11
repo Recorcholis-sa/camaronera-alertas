@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- saved from url=(0047)file:///C:/Users/Usuario/Downloads/index_2.html -->
+<!-- saved from url=(0047)file:///C:/Users/Usuario/Downloads/index_3.html -->
 <html lang="es"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -184,7 +184,7 @@ td{padding:8px;border-bottom:1px solid #f3f4f6;color:#111}
       <div style="font-size:40px">📸</div><p>Toca para subir la foto</p><small>Foto del block de parámetros diarios</small>
     </div>
     <input type="file" id="fileInput" accept="image/*" capture="environment" onchange="handleFile(this.files[0])">
-    <div class="preview" id="previewWrap"><img id="previewImg" src="file:///C:/Users/Usuario/Downloads/index_2.html" alt="preview"></div>
+    <div class="preview" id="previewWrap"><img id="previewImg" src="file:///C:/Users/Usuario/Downloads/index_3.html" alt="preview"></div>
     <div id="foto-estado"></div>
     <button class="btn btn-green" id="btnEnviar" onclick="enviarFoto()" disabled="">📤 Procesar y enviar alertas</button>
     <button class="btn btn-outline" id="btnNueva" onclick="resetFoto()" style="display:none">📷 Subir otra foto</button>
@@ -409,16 +409,16 @@ async function cargarDetalle() {
   charts = {};
 
   document.getElementById('detalle-charts').innerHTML = `
-    <div class="chart-wrap"><div class="chart-titulo">💧 Oxígeno AM (mg/L)</div><canvas id="ch-o2am"></canvas></div>
-    <div class="chart-wrap"><div class="chart-titulo">💧 Oxígeno PM (mg/L)</div><canvas id="ch-o2pm"></canvas></div>
-    <div class="chart-wrap"><div class="chart-titulo">🌡️ Temperatura AM (°C)</div><canvas id="ch-tam"></canvas></div>
-    <div class="chart-wrap"><div class="chart-titulo">🌡️ Temperatura PM (°C)</div><canvas id="ch-tpm"></canvas></div>
+    <div class="chart-wrap"><div class="chart-titulo">🌅 Mañana — O₂ AM y Temperatura AM</div><canvas id="ch-am"></canvas></div>
+    <div class="chart-wrap"><div class="chart-titulo">🌆 Tarde — O₂ PM y Temperatura PM</div><canvas id="ch-pm"></canvas></div>
   `;
 
-  charts.o2am = crearChart('ch-o2am', labels, d.datos.map(x=>x.oxigeno_am), 'O₂ AM', '#1D9E75', true);
-  charts.o2pm = crearChart('ch-o2pm', labels, d.datos.map(x=>x.oxigeno_pm), 'O₂ PM', '#0F6E56', true);
-  charts.tam  = crearChart('ch-tam',  labels, d.datos.map(x=>x.temp_am),    'T AM',   '#f59e0b', false);
-  charts.tpm  = crearChart('ch-tpm',  labels, d.datos.map(x=>x.temp_pm),    'T PM',   '#ef4444', false);
+  charts.am = crearChartDoble('ch-am', labels,
+    d.datos.map(x=>x.oxigeno_am), 'O₂ AM (mg/L)', '#1D9E75',
+    d.datos.map(x=>x.temp_am),    'Temp AM (°C)',  '#f59e0b', true);
+  charts.pm = crearChartDoble('ch-pm', labels,
+    d.datos.map(x=>x.oxigeno_pm), 'O₂ PM (mg/L)', '#0F6E56',
+    d.datos.map(x=>x.temp_pm),    'Temp PM (°C)',  '#ef4444', true);
 }
 
 function setPeriodo(dias, btn) {
@@ -426,6 +426,42 @@ function setPeriodo(dias, btn) {
   document.querySelectorAll('.periodo-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   cargarDetalle();
+}
+
+function crearChartDoble(canvasId, labels, datos1, label1, color1, datos2, label2, color2, conLineas) {
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  const datasets = [
+    {
+      label: label1, data: datos1, yAxisID: 'y',
+      borderColor: color1, backgroundColor: color1+'22',
+      borderWidth: 2, pointRadius: 3, pointBackgroundColor: color1,
+      tension: 0.3, fill: true, spanGaps: true
+    },
+    {
+      label: label2, data: datos2, yAxisID: 'y2',
+      borderColor: color2, backgroundColor: 'transparent',
+      borderWidth: 2, pointRadius: 3, pointBackgroundColor: color2,
+      borderDash: [4,2],
+      tension: 0.3, fill: false, spanGaps: true
+    }
+  ];
+  if (conLineas) {
+    datasets.push({label:'Crítico O₂',data:datos1.map(()=>3.0),yAxisID:'y',borderColor:'#ef444466',borderWidth:1.5,borderDash:[5,3],pointRadius:0,fill:false});
+    datasets.push({label:'Vigilancia O₂',data:datos1.map(()=>3.5),yAxisID:'y',borderColor:'#f59e0b66',borderWidth:1.5,borderDash:[5,3],pointRadius:0,fill:false});
+  }
+  return new Chart(ctx, {
+    type:'line', data:{labels, datasets},
+    options:{
+      responsive:true,
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:true,labels:{font:{size:10},boxWidth:16}}},
+      scales:{
+        y:{position:'left',grid:{color:'#f0f0f0'},ticks:{font:{size:11}},title:{display:true,text:'mg/L',font:{size:10}}},
+        y2:{position:'right',grid:{drawOnChartArea:false},ticks:{font:{size:11}},title:{display:true,text:'°C',font:{size:10}}},
+        x:{grid:{display:false},ticks:{font:{size:10},maxRotation:45,maxTicksLimit:10}}
+      }
+    }
+  });
 }
 
 function crearChart(canvasId, labels, datos, label, color, conLineas) {
