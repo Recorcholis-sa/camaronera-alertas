@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- saved from url=(0047)file:///C:/Users/Usuario/Downloads/index_3.html -->
+<!-- saved from url=(0047)file:///C:/Users/Usuario/Downloads/index_4.html -->
 <html lang="es"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -184,7 +184,7 @@ td{padding:8px;border-bottom:1px solid #f3f4f6;color:#111}
       <div style="font-size:40px">📸</div><p>Toca para subir la foto</p><small>Foto del block de parámetros diarios</small>
     </div>
     <input type="file" id="fileInput" accept="image/*" capture="environment" onchange="handleFile(this.files[0])">
-    <div class="preview" id="previewWrap"><img id="previewImg" src="file:///C:/Users/Usuario/Downloads/index_3.html" alt="preview"></div>
+    <div class="preview" id="previewWrap"><img id="previewImg" src="file:///C:/Users/Usuario/Downloads/index_4.html" alt="preview"></div>
     <div id="foto-estado"></div>
     <button class="btn btn-green" id="btnEnviar" onclick="enviarFoto()" disabled="">📤 Procesar y enviar alertas</button>
     <button class="btn btn-outline" id="btnNueva" onclick="resetFoto()" style="display:none">📷 Subir otra foto</button>
@@ -206,6 +206,7 @@ td{padding:8px;border-bottom:1px solid #f3f4f6;color:#111}
   <div class="card" style="max-width:480px">
     <button class="back-btn" id="back-detalle" onclick="">← Volver al campo</button>
     <h2 id="detalle-titulo">Piscina</h2>
+    <div id="corrida-selector" style="margin-bottom:12px"></div>
     <div class="metric-grid" id="detalle-metrics"></div>
     <p style="font-size:12px;font-weight:600;color:#6b7280;margin-bottom:8px">PERÍODO</p>
     <div class="periodo-row">
@@ -236,7 +237,8 @@ let biologoCampos = [];
 let detalleSector = null;
 let detallePiscina = null;
 let detallePeriodo = 7;
-let charts = {};
+let detalleCorrida = null;
+let todasCorridas = [];
 let histOrigen = null; // 'g' o 'b'
 
 // ── Navegación ──────────────────────────────────────────────
@@ -353,24 +355,85 @@ async function verResumenCampo(sector) {
 // ── HISTÓRICO: Detalle de piscina ───────────────────────────
 async function verDetallePiscina(piscina) {
   detallePiscina = piscina;
-  detallePeriodo = 7;
+  detallePeriodo = 99999;
+  detalleCorrida = null;
 
   document.getElementById('back-detalle').onclick = () => verResumenCampo(detalleSector);
   document.getElementById('detalle-titulo').textContent = `📊 ${detalleSector} — ${piscina}`;
-
-  // Reset periodo btns
-  document.querySelectorAll('.periodo-btn').forEach((b,i)=>b.classList.toggle('active',i===1));
+  document.querySelectorAll('.periodo-btn').forEach((b,i)=>b.classList.toggle('active',i===0));
 
   irA('v-detalle');
+
+  // Cargar corridas disponibles
+  const rc = await fetch(`/api/corridas?sector=${encodeURIComponent(detalleSector)}&piscina=${encodeURIComponent(piscina)}`);
+  const dc = await rc.json();
+  todasCorridas = dc.corridas || [];
+
+  renderCorridaSelector();
+  await cargarDetalle();
+}
+
+function renderCorridaSelector() {
+  const wrap = document.getElementById('corrida-selector');
+  if (!todasCorridas.length) { wrap.innerHTML = ''; return; }
+
+  const actual = todasCorridas[0]; // más reciente
+  const hayAnteriores = todasCorridas.length > 1;
+
+  let html = `<div style="background:#f0fdf8;border:1.5px solid #9FE1CB;border-radius:12px;padding:12px;margin-bottom:4px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <div>
+        <span style="font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase">Corrida actual</span>
+        <div style="font-size:14px;font-weight:700;color:#0F6E56">Corrida ${actual.corrida} — ${actual.dias} días registrados</div>
+        <div style="font-size:11px;color:#6b7280">${actual.inicio} → ${actual.fin}</div>
+      </div>`;
+
+  if (hayAnteriores) {
+    html += `<select onchange="cambiarCorrida(this.value)" style="padding:8px 10px;border-radius:10px;border:1.5px solid #0F6E56;font-size:13px;color:#0F6E56;font-weight:600;background:white;cursor:pointer">
+      <option value="">Ver corrida anterior...</option>
+      ${todasCorridas.slice(1).map(c=>`<option value="${c.corrida}">Corrida ${c.corrida} (${c.inicio} → ${c.fin})</option>`).join('')}
+    </select>`;
+  }
+
+  html += `</div></div>`;
+  wrap.innerHTML = html;
+}
+
+async function cambiarCorrida(corrida) {
+  if (!corrida) return;
+  detalleCorrida = corrida;
+  // Actualizar título
+  const c = todasCorridas.find(x=>x.corrida==corrida);
+  document.getElementById('detalle-titulo').textContent = `📊 ${detalleSector} — ${detallePiscina} (Corrida ${corrida})`;
+  // Actualizar selector
+  const wrap = document.getElementById('corrida-selector');
+  wrap.innerHTML = `<div style="background:#fffbeb;border:1.5px solid #f59e0b;border-radius:12px;padding:12px;margin-bottom:4px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <div>
+        <span style="font-size:11px;font-weight:600;color:#92400e;text-transform:uppercase">Corrida histórica</span>
+        <div style="font-size:14px;font-weight:700;color:#92400e">Corrida ${corrida} — ${c?c.dias:''} días</div>
+        <div style="font-size:11px;color:#6b7280">${c?c.inicio:''} → ${c?c.fin:''}</div>
+      </div>
+      <button onclick="volverCorridaActual()" style="padding:8px 12px;border-radius:10px;border:1.5px solid #0F6E56;font-size:13px;color:#0F6E56;font-weight:600;background:white;cursor:pointer">← Corrida actual</button>
+    </div>
+  </div>`;
+  await cargarDetalle();
+}
+
+async function volverCorridaActual() {
+  detalleCorrida = null;
+  document.getElementById('detalle-titulo').textContent = `📊 ${detalleSector} — ${detallePiscina}`;
+  renderCorridaSelector();
   await cargarDetalle();
 }
 
 async function cargarDetalle() {
   const sector = detalleSector, piscina = detallePiscina, dias = detallePeriodo;
+  const corridaParam = detalleCorrida ? `&corrida=${detalleCorrida}` : '';
   document.getElementById('detalle-metrics').innerHTML = '<div class="spinner" style="margin:10px auto;grid-column:span 2"></div>';
   document.getElementById('detalle-charts').innerHTML = '';
 
-  const r = await fetch(`/api/historico?sector=${encodeURIComponent(sector)}&piscina=${encodeURIComponent(piscina)}&dias=${dias}`);
+  const r = await fetch(`/api/historico?sector=${encodeURIComponent(sector)}&piscina=${encodeURIComponent(piscina)}&dias=${dias}${corridaParam}`);
   const d = await r.json();
 
   if (!d.datos || !d.datos.length) {
