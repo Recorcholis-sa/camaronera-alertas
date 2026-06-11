@@ -10,15 +10,35 @@ EMAIL_REMITENTE   = os.environ.get("EMAIL_REMITENTE", "biologo4@docapes.com")
 O2_CRITICO        = 3.0
 O2_VIGILANCIA     = 3.5
 
+USUARIOS_FILE = "/tmp/usuarios.json"
+
 CAMPOS = ["Rolesa 1","Rolesa 2","Pantrusko 1","Pantrusko 2",
           "Caesa 1","Caesa 2","Fimasa 1","Fimasa 2","Fimasa 3",
           "Recorcholis 1","Recorcholis 2"]
 
 def leer_usuarios():
+    # Primero intenta leer del archivo dinámico
+    usuarios = []
     try:
-        return json.loads(USUARIOS_JSON)
+        if os.path.exists(USUARIOS_FILE):
+            with open(USUARIOS_FILE, "r") as f:
+                usuarios = json.load(f)
     except:
-        return []
+        pass
+    # Luego agrega los de la variable de entorno (sin duplicar emails)
+    try:
+        base = json.loads(USUARIOS_JSON)
+        emails_existentes = {u["email"] for u in usuarios}
+        for u in base:
+            if u.get("email") not in emails_existentes:
+                usuarios.append(u)
+    except:
+        pass
+    return usuarios
+
+def guardar_usuarios(usuarios):
+    with open(USUARIOS_FILE, "w") as f:
+        json.dump(usuarios, f, ensure_ascii=False)
 
 @app.route("/")
 def index():
@@ -27,6 +47,60 @@ def index():
 @app.route("/api/campos", methods=["GET"])
 def get_campos():
     return jsonify({"campos": CAMPOS})
+
+@app.route("/api/registrar", methods=["POST"])
+def registrar():
+    try:
+        data = request.get_json()
+        rol     = data.get("rol", "")
+        nombre  = data.get("nombre", "").strip()
+        email   = data.get("email", "").strip().lower()
+        whatsapp= data.get("whatsapp", "").strip()
+        campos  = data.get("campos", [])
+
+        if not nombre or not email:
+            return jsonify({"ok": False, "error": "Nombre y email son requeridos"}), 400
+
+        # Gerencia recibe todos los campos
+        if rol == "gerencia":
+            campos = CAMPOS
+
+        usuarios = leer_usuarios()
+
+        # Verificar si ya existe
+        for u in usuarios:
+            if u.get("email") == email:
+                # Actualizar datos
+                u["nombre"] = nombre
+                u["whatsapp"] = whatsapp
+                u["campos"] = campos
+                u["rol"] = rol
+                guardar_usuarios([u2 for u2 in usuarios if u2.get("email") != email] + [u])
+                return jsonify({"ok": True, "mensaje": f"Perfil actualizado para {nombre}"})
+
+        # Nuevo usuario
+        nuevo = {
+            "nombre": nombre,
+            "email": email,
+            "whatsapp": whatsapp,
+            "campos": campos,
+            "rol": rol
+        }
+        usuarios.append(nuevo)
+        # Guardar solo los del archivo (no los de la variable de entorno)
+        try:
+            existentes = []
+            if os.path.exists(USUARIOS_FILE):
+                with open(USUARIOS_FILE, "r") as f:
+                    existentes = json.load(f)
+        except:
+            existentes = []
+        existentes.append(nuevo)
+        guardar_usuarios(existentes)
+
+        return jsonify({"ok": True, "mensaje": f"Registro exitoso. Bienvenido {nombre}!"})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 @app.route("/api/procesar", methods=["POST"])
 def procesar():
