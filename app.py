@@ -9,7 +9,7 @@ USUARIOS_JSON     = os.environ.get("USUARIOS_JSON", "[]")
 POSTMARK_TOKEN    = os.environ.get("POSTMARK_TOKEN", "")
 EMAIL_REMITENTE   = os.environ.get("EMAIL_REMITENTE", "biologo4@docapes.com")
 DATABASE_URL      = os.environ.get("DATABASE_URL", "")
-O2_CRITICO        = 3.0
+O2_CRITICO        = 2.9
 O2_VIGILANCIA     = 3.5
 
 CAMPOS = ["Rolesa 1","Rolesa 2","Pantrusko 1","Pantrusko 2",
@@ -288,11 +288,11 @@ def get_piscinas():
 # ── IA ─────────────────────────────────────────────────────
 def extraer_con_ia(imagen_b64, mime):
     payload = {
-        "model": "claude-haiku-4-5-20251001",
+        "model": "claude-opus-4-6",
         "max_tokens": 2000,
         "messages": [{"role": "user", "content": [
             {"type": "image", "source": {"type": "base64", "media_type": mime, "data": imagen_b64}},
-            {"type": "text", "text": 'Extrae los datos de esta hoja de parametros de piscinas. Devuelve SOLO JSON sin texto extra: {"fecha":"DD/MM/YYYY","sector":"nombre","piscinas":[{"ps":"codigo","oxigeno_am":num_o_null,"oxigeno_pm":num_o_null,"temp_am":num_o_null,"temp_pm":num_o_null}]}'}
+            {"type": "text", "text": 'Eres un experto en acuicultura leyendo hojas de parámetros de piscinas camaroneras. Debes leer cada valor DOS VECES antes de confirmar. Proceso: 1) Lee todos los valores, 2) Vuelve a verificar cada valor leyendo dígito por dígito. Rangos típicos: oxígeno 1.0-15.0 mg/L (valores fuera de este rango son errores de lectura), temperatura 20.0-35.0 °C. Distingue con cuidado: 3 vs 8, 1 vs 7, 5 vs 6, 0 vs 9, punto decimal vs coma. Si un valor es ilegible usa null. Devuelve SOLO JSON sin texto extra ni explicaciones: {"fecha":"DD/MM/YYYY","sector":"nombre","piscinas":[{"ps":"codigo","oxigeno_am":num_o_null,"oxigeno_pm":num_o_null,"temp_am":num_o_null,"temp_pm":num_o_null}]}'}
         ]}]
     }
     req = urllib.request.Request(
