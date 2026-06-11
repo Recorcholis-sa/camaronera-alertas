@@ -1,5 +1,5 @@
 import os, json, base64, urllib.request, sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import Flask, request, jsonify, render_template
 
 app = Flask(__name__)
@@ -27,6 +27,7 @@ def init_db():
             fecha TEXT,
             sector TEXT,
             piscina TEXT,
+            corrida INTEGER DEFAULT 1,
             oxigeno_am REAL,
             oxigeno_pm REAL,
             temp_am REAL,
@@ -34,32 +35,55 @@ def init_db():
             created_at TEXT
         )
     """)
+    # Migración: agregar columna corrida si no existe
+    try:
+        con.execute("ALTER TABLE lecturas ADD COLUMN corrida INTEGER DEFAULT 1")
+        con.commit()
+    except:
+        pass
     con.commit()
     con.close()
 
 init_db()
 
+def get_corrida_actual(con, sector, piscina):
+    """Devuelve el número de corrida actual y detecta si hay que crear una nueva."""
+    cur = con.execute("""
+        SELECT corrida, created_at FROM lecturas
+        WHERE sector=? AND piscina=?
+        ORDER BY created_at DESC LIMIT 1
+    """, (sector, piscina))
+    row = cur.fetchone()
+    if not row:
+        return 1  # Primera corrida
+    ultima_corrida = row[0]
+    ultima_fecha   = datetime.fromisoformat(row[1])
+    dias_sin_reporte = (datetime.utcnow() - ultima_fecha).days
+    if dias_sin_reporte > 2:
+        return ultima_corrida + 1  # Nueva corrida
+    return ultima_corrida
+
 def guardar_lecturas(sector, fecha, piscinas):
     con = sqlite3.connect(DB_PATH)
     now = datetime.utcnow().isoformat()
     for p in piscinas:
-        # Verificar si ya existe lectura para ese sector/fecha/piscina
+        corrida = get_corrida_actual(con, sector, p["ps"])
         cur = con.execute(
-            "SELECT id FROM lecturas WHERE sector=? AND fecha=? AND piscina=?",
-            (sector, fecha, p["ps"])
+            "SELECT id FROM lecturas WHERE sector=? AND fecha=? AND piscina=? AND corrida=?",
+            (sector, fecha, p["ps"], corrida)
         )
         if cur.fetchone():
             con.execute("""
                 UPDATE lecturas SET oxigeno_am=?, oxigeno_pm=?, temp_am=?, temp_pm=?, created_at=?
-                WHERE sector=? AND fecha=? AND piscina=?
+                WHERE sector=? AND fecha=? AND piscina=? AND corrida=?
             """, (p.get("oxigeno_am"), p.get("oxigeno_pm"),
                   p.get("temp_am"), p.get("temp_pm"), now,
-                  sector, fecha, p["ps"]))
+                  sector, fecha, p["ps"], corrida))
         else:
             con.execute("""
-                INSERT INTO lecturas (fecha, sector, piscina, oxigeno_am, oxigeno_pm, temp_am, temp_pm, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (fecha, sector, p["ps"],
+                INSERT INTO lecturas (fecha, sector, piscina, corrida, oxigeno_am, oxigeno_pm, temp_am, temp_pm, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (fecha, sector, p["ps"], corrida,
                   p.get("oxigeno_am"), p.get("oxigeno_pm"),
                   p.get("temp_am"), p.get("temp_pm"), now))
     con.commit()
@@ -147,7 +171,6 @@ def procesar():
         print(f"IA respondio: {len(datos.get('piscinas',[]))} piscinas")
         if campo:
             datos["sector"] = campo
-        # Guardar en base de datos
         guardar_lecturas(datos.get("sector", campo), datos.get("fecha", ""), datos.get("piscinas", []))
         enviados = evaluar_y_notificar(datos, campo)
         return jsonify({
@@ -161,28 +184,65 @@ def procesar():
         print(f"ERROR: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
+@app.route("/api/corridas", methods=["GET"])
+def get_corridas():
+    """Devuelve lista de corridas disponibles para una piscina."""
+    try:
+        sector  = request.args.get("sector", "")
+        piscina = request.args.get("piscina", "")
+        if not sector or not piscina:
+            return jsonify({"error": "sector y piscina requeridos"}), 400
+        con = sqlite3.connect(DB_PATH)
+        cur = con.execute("""
+            SELECT corrida, MIN(fecha) as inicio, MAX(fecha) as fin, COUNT(*) as dias
+            FROM lecturas
+            WHERE sector=? AND piscina=?
+            GROUP BY corrida
+            ORDER BY corrida DESC
+        """, (sector, piscina))
+        corridas = [{"corrida": r[0], "inicio": r[1], "fin": r[2], "dias": r[3]} for r in cur.fetchall()]
+        con.close()
+        return jsonify({"corridas": corridas})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route("/api/historico", methods=["GET"])
 def historico():
     try:
         sector  = request.args.get("sector", "")
         piscina = request.args.get("piscina", "")
-        dias    = int(request.args.get("dias", 7))
+        dias    = int(request.args.get("dias", 99999))
+        corrida = request.args.get("corrida", None)
         if not sector or not piscina:
             return jsonify({"error": "sector y piscina son requeridos"}), 400
         con = sqlite3.connect(DB_PATH)
-        cur = con.execute("""
-            SELECT fecha, oxigeno_am, oxigeno_pm, temp_am, temp_pm
-            FROM lecturas
-            WHERE sector=? AND piscina=?
-            ORDER BY created_at DESC
-            LIMIT ?
-        """, (sector, piscina, dias))
+        if corrida:
+            # Filtrar por corrida específica
+            cur = con.execute("""
+                SELECT fecha, oxigeno_am, oxigeno_pm, temp_am, temp_pm, corrida
+                FROM lecturas
+                WHERE sector=? AND piscina=? AND corrida=?
+                ORDER BY created_at ASC
+            """, (sector, piscina, int(corrida)))
+        else:
+            # Corrida más reciente
+            cur_c = con.execute("""
+                SELECT MAX(corrida) FROM lecturas WHERE sector=? AND piscina=?
+            """, (sector, piscina))
+            max_corrida = cur_c.fetchone()[0] or 1
+            cur = con.execute("""
+                SELECT fecha, oxigeno_am, oxigeno_pm, temp_am, temp_pm, corrida
+                FROM lecturas
+                WHERE sector=? AND piscina=? AND corrida=?
+                ORDER BY created_at ASC
+                LIMIT ?
+            """, (sector, piscina, max_corrida, dias))
         rows = cur.fetchall()
         con.close()
         datos = [{"fecha": r[0], "oxigeno_am": r[1], "oxigeno_pm": r[2],
-                  "temp_am": r[3], "temp_pm": r[4]} for r in rows]
-        datos.reverse()
-        return jsonify({"ok": True, "datos": datos, "sector": sector, "piscina": piscina})
+                  "temp_am": r[3], "temp_pm": r[4], "corrida": r[5]} for r in rows]
+        corrida_num = datos[0]["corrida"] if datos else 1
+        return jsonify({"ok": True, "datos": datos, "sector": sector, "piscina": piscina, "corrida": corrida_num})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
