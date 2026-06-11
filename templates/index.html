@@ -1,7 +1,7 @@
 <!DOCTYPE html>
-<!-- saved from url=(0047)file:///C:/Users/Usuario/Downloads/index_6.html -->
-<html lang="es"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-
+<html lang="es">
+<head>
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0F6E56">
 <title>Camaronera — Parámetros</title>
@@ -110,9 +110,9 @@ td{padding:8px;border-bottom:1px solid #f3f4f6;color:#111}
   <div class="card">
     <h2>¿Quién eres?</h2>
     <div class="rol-grid">
-      <div class="rol-btn" onclick="irA(&#39;v-gerencia&#39;)"><div class="rol-icon">👔</div><div class="rol-label">Gerencia</div></div>
-      <div class="rol-btn" onclick="irA(&#39;v-biologo&#39;)"><div class="rol-icon">🔬</div><div class="rol-label">Biólogo</div></div>
-      <div class="rol-btn" onclick="irA(&#39;v-parametrista&#39;)"><div class="rol-icon">📋</div><div class="rol-label">Parametrista</div></div>
+      <div class="rol-btn" onclick="irA('v-gerencia')"><div class="rol-icon">👔</div><div class="rol-label">Gerencia</div></div>
+      <div class="rol-btn" onclick="irA('v-biologo')"><div class="rol-icon">🔬</div><div class="rol-label">Biólogo</div></div>
+      <div class="rol-btn" onclick="irA('v-parametrista')"><div class="rol-icon">📋</div><div class="rol-label">Parametrista</div></div>
     </div>
   </div>
 </div>
@@ -120,11 +120,11 @@ td{padding:8px;border-bottom:1px solid #f3f4f6;color:#111}
 <!-- VIEW 2: GERENCIA -->
 <div class="view" id="v-gerencia">
   <div class="card">
-    <button class="back-btn" onclick="irA(&#39;v-inicio&#39;)">← Volver</button>
+    <button class="back-btn" onclick="irA('v-inicio')">← Volver</button>
     <h2>👔 Gerencia</h2>
     <div class="tab-row">
-      <button class="tab-btn active" id="g-tab-reg" onclick="switchTab(&#39;g&#39;,&#39;reg&#39;)">Registrarme</button>
-      <button class="tab-btn" id="g-tab-hist" onclick="switchTab(&#39;g&#39;,&#39;hist&#39;)">📊 Ver histórico</button>
+      <button class="tab-btn active" id="g-tab-reg" onclick="switchTab('g','reg')">Registrarme</button>
+      <button class="tab-btn" id="g-tab-hist" onclick="switchTab('g','hist')">📊 Ver histórico</button>
     </div>
     <div id="g-panel-reg">
       <p style="font-size:13px;color:#6b7280;margin-bottom:16px">Recibirás alertas de <strong>todos los campos</strong>.</p>
@@ -143,11 +143,11 @@ td{padding:8px;border-bottom:1px solid #f3f4f6;color:#111}
 <!-- VIEW 3: BIÓLOGO -->
 <div class="view" id="v-biologo">
   <div class="card">
-    <button class="back-btn" onclick="irA(&#39;v-inicio&#39;)">← Volver</button>
+    <button class="back-btn" onclick="irA('v-inicio')">← Volver</button>
     <h2>🔬 Biólogo</h2>
     <div class="tab-row">
-      <button class="tab-btn active" id="b-tab-reg" onclick="switchTab(&#39;b&#39;,&#39;reg&#39;)">Registrarme</button>
-      <button class="tab-btn" id="b-tab-hist" onclick="switchTab(&#39;b&#39;,&#39;hist&#39;)">📊 Ver histórico</button>
+      <button class="tab-btn active" id="b-tab-reg" onclick="switchTab('b','reg')">Registrarme</button>
+      <button class="tab-btn" id="b-tab-hist" onclick="switchTab('b','hist')">📊 Ver histórico</button>
     </div>
     <div id="b-panel-reg">
       <div class="field"><label>Nombre completo</label><input id="b-nombre" type="text" placeholder="Ej: Ana Torres"></div>
@@ -166,27 +166,27 @@ td{padding:8px;border-bottom:1px solid #f3f4f6;color:#111}
 <!-- VIEW 4: PARAMETRISTA -->
 <div class="view" id="v-parametrista">
   <div class="card">
-    <button class="back-btn" onclick="irA(&#39;v-inicio&#39;)">← Volver</button>
+    <button class="back-btn" onclick="irA('v-inicio')">← Volver</button>
     <h2>📋 Parametrista</h2>
     <p style="font-size:13px;color:#6b7280;margin-bottom:16px">Selecciona el campo que vas a reportar hoy:</p>
     <div class="campo-sel-grid" id="campo-sel-grid"></div>
-    <button class="btn btn-green" id="btn-ir-foto" onclick="irAFoto()" disabled="">📷 Continuar a subir foto</button>
+    <button class="btn btn-green" id="btn-ir-foto" onclick="irAFoto()" disabled>📷 Continuar a subir foto</button>
   </div>
 </div>
 
 <!-- VIEW 5: FOTO -->
 <div class="view" id="v-foto">
   <div class="card">
-    <button class="back-btn" onclick="irA(&#39;v-parametrista&#39;)">← Cambiar campo</button>
+    <button class="back-btn" onclick="irA('v-parametrista')">← Cambiar campo</button>
     <h2>📷 Subir parámetros</h2>
     <p style="font-size:13px;color:#1D9E75;font-weight:600;margin-bottom:14px" id="campo-actual-label"></p>
-    <div class="upload-zone" id="uploadZone" onclick="document.getElementById(&#39;fileInput&#39;).click()" ondragover="event.preventDefault()" ondrop="handleDrop(event)">
+    <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()" ondragover="event.preventDefault()" ondrop="handleDrop(event)">
       <div style="font-size:40px">📸</div><p>Toca para subir la foto</p><small>Foto del block de parámetros diarios</small>
     </div>
     <input type="file" id="fileInput" accept="image/*" capture="environment" onchange="handleFile(this.files[0])">
-    <div class="preview" id="previewWrap"><img id="previewImg" src="file:///C:/Users/Usuario/Downloads/index_6.html" alt="preview"></div>
+    <div class="preview" id="previewWrap"><img id="previewImg" src="" alt="preview"></div>
     <div id="foto-estado"></div>
-    <button class="btn btn-green" id="btnEnviar" onclick="enviarFoto()" disabled="">📤 Procesar y enviar alertas</button>
+    <button class="btn btn-green" id="btnEnviar" onclick="enviarFoto()" disabled>📤 Procesar y enviar alertas</button>
     <button class="btn btn-outline" id="btnNueva" onclick="resetFoto()" style="display:none">📷 Subir otra foto</button>
   </div>
 </div>
@@ -310,6 +310,8 @@ async function verResumenCampo(sector) {
       .then(r=>r.json()).then(d=>({ps, dato: d.datos && d.datos.length ? d.datos[d.datos.length-1] : null}))
   );
   const resultados = await Promise.all(promesas);
+  // Ordenar numéricamente
+  resultados.sort((a,b) => { const na=parseInt(a.ps), nb=parseInt(b.ps); return isNaN(na)||isNaN(nb) ? a.ps.localeCompare(b.ps) : na-nb; });
 
   // Fecha del último reporte
   const fechas = resultados.filter(r=>r.dato).map(r=>r.dato.fecha);
@@ -695,6 +697,5 @@ function mostrarEstado(id,tipo,msg){
   document.getElementById(id).innerHTML=`<div class="estado ${clases[tipo]}">${spin}<p>${msg.replace(/\n/g,'<br>')}</p></div>`;
 }
 </script>
-
-
-</body></html>
+</body>
+</html>
