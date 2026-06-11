@@ -1,14 +1,14 @@
-import os, json, base64, urllib.request
+import os, json, base64, smtplib, urllib.request
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from flask import Flask, request, jsonify, render_template
 
 app = Flask(__name__)
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+EMAIL_REMITENTE   = os.environ.get("EMAIL_REMITENTE", "")
+EMAIL_PASSWORD    = os.environ.get("EMAIL_PASSWORD", "")
 USUARIOS_JSON     = os.environ.get("USUARIOS_JSON", "[]")
-EMAILJS_SERVICE   = os.environ.get("EMAILJS_SERVICE", "")
-EMAILJS_TEMPLATE  = os.environ.get("EMAILJS_TEMPLATE", "")
-EMAILJS_PUBLIC    = os.environ.get("EMAILJS_PUBLIC", "")
-EMAILJS_PRIVATE   = os.environ.get("EMAILJS_PRIVATE", "")
 O2_CRITICO        = 3.0
 O2_VIGILANCIA     = 3.5
 
@@ -44,7 +44,6 @@ def procesar():
         print(f"IA respondio: {len(datos.get('piscinas',[]))} piscinas")
         if campo:
             datos["sector"] = campo
-        # Llamar directamente (sin hilo) para que los emails salgan antes de responder
         enviados = evaluar_y_notificar(datos, campo)
         return jsonify({
             "ok": True,
@@ -117,42 +116,25 @@ def evaluar_y_notificar(datos, campo_param):
         cuerpo = f"{nivel}\nSector: {sector} | Fecha: {fecha}\n{'='*40}\n\n"
         for a in alertas:
             cuerpo += f"Piscina {a['ps']} - O2 AM: {a.get('oxigeno_am','--')} | O2 PM: {a.get('oxigeno_pm','--')} mg/L\n"
-        enviar_email_emailjs(u.get("email"), u.get("nombre",""), asunto, cuerpo)
+        enviar_email(u.get("email"), asunto, cuerpo)
         enviados += 1
     print(f"Emails enviados: {enviados}")
     return enviados
 
-def enviar_email_emailjs(dest_email, dest_nombre, asunto, cuerpo):
+def enviar_email(dest, asunto, cuerpo):
     try:
-        print(f"Enviando EmailJS a {dest_email}...")
-        print(f"  service={EMAILJS_SERVICE} template={EMAILJS_TEMPLATE} public={EMAILJS_PUBLIC[:6]}... private={'SI' if EMAILJS_PRIVATE else 'NO'}")
-        payload = {
-            "service_id":  EMAILJS_SERVICE,
-            "template_id": EMAILJS_TEMPLATE,
-            "user_id":     EMAILJS_PUBLIC,
-            "accessToken": EMAILJS_PRIVATE,
-            "template_params": {
-                "to_email": dest_email,
-                "name":     dest_nombre or "Equipo Camaronera",
-                "subject":  asunto,
-                "message":  cuerpo,
-                "email":    dest_email
-            }
-        }
-        req = urllib.request.Request(
-            "https://api.emailjs.com/api/v1.0/email/send",
-            data=json.dumps(payload).encode(),
-            headers={"Content-Type": "application/json", "origin": "http://localhost"}
-        )
-        with urllib.request.urlopen(req, timeout=20) as r:
-            status = r.status
-            body   = r.read().decode()
-        print(f"EmailJS -> {dest_email} | status: {status} | resp: {body}")
-    except urllib.error.HTTPError as e:
-        body = e.read().decode()
-        print(f"EmailJS HTTP error ({dest_email}): {e.code} {e.reason} | {body}")
+        print(f"Enviando SMTP a {dest}...")
+        msg = MIMEMultipart()
+        msg["From"]    = EMAIL_REMITENTE
+        msg["To"]      = dest
+        msg["Subject"] = asunto
+        msg.attach(MIMEText(cuerpo, "plain", "utf-8"))
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=20) as s:
+            s.login(EMAIL_REMITENTE, EMAIL_PASSWORD)
+            s.sendmail(EMAIL_REMITENTE, dest, msg.as_string())
+        print(f"Email enviado OK a {dest}")
     except Exception as e:
-        print(f"EmailJS error ({dest_email}): {e}")
+        print(f"SMTP error ({dest}): {e}")
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
