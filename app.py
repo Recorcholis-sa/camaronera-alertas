@@ -155,7 +155,6 @@ def get_resumen_campo(sector, dias=3):
     try:
         con = get_conn()
         cur = con.cursor(cursor_factory=RealDictCursor)
-        # Obtener corrida máxima por piscina y sus últimos N días
         cur.execute("""
             SELECT piscina, fecha, oxigeno_am, oxigeno_pm, temp_am, temp_pm
             FROM lecturas
@@ -167,7 +166,6 @@ def get_resumen_campo(sector, dias=3):
         rows = cur.fetchall()
         cur.close(); con.close()
 
-        # Agrupar por piscina
         piscinas = {}
         for r in rows:
             ps = r["piscina"]
@@ -176,7 +174,6 @@ def get_resumen_campo(sector, dias=3):
             if len(piscinas[ps]) < dias:
                 piscinas[ps].append(dict(r))
 
-        # Ordenar numéricamente
         def sort_key(p):
             try: return (0, int(p))
             except: return (1, p)
@@ -188,7 +185,7 @@ def get_resumen_campo(sector, dias=3):
             resultado.append({
                 "piscina": ps,
                 "ultimo": ultimo,
-                "historial": list(reversed(historial))  # orden cronológico
+                "historial": list(reversed(historial))
             })
         return resultado
     except Exception as e:
@@ -249,7 +246,6 @@ def construir_email_gerencia_consolidado(fecha):
         campo = info["campo"]
         piscinas_data = info["piscinas"]
 
-        # Promedios del campo
         o2_am_vals = [p["ultimo"]["oxigeno_am"] for p in piscinas_data if p["ultimo"].get("oxigeno_am") is not None]
         temp_am_vals = [p["ultimo"]["temp_am"] for p in piscinas_data if p["ultimo"].get("temp_am") is not None]
         prom_o2_am  = round(sum(o2_am_vals)/len(o2_am_vals), 2) if o2_am_vals else "—"
@@ -260,7 +256,6 @@ def construir_email_gerencia_consolidado(fecha):
         lineas.append(f"   Total piscinas: {len(piscinas_data)} | Alertas: {len(info['alertas'])} | Críticas: {len(info['criticos'])}")
         lineas.append("")
 
-        # Piscinas en alerta primero
         lineas.append("   ⚠️  PISCINAS EN ALERTA:")
         for p in info["alertas"]:
             u = p["ultimo"]
@@ -270,13 +265,11 @@ def construir_email_gerencia_consolidado(fecha):
             tpm  = u.get("temp_pm", "—")
             e = "🔴" if (isinstance(o2am,float) and o2am<O2_CRITICO) or (isinstance(o2pm,float) and o2pm<O2_CRITICO) else "🟡"
             lineas.append(f"   {e} Ps {p['piscina']:>3}: O₂AM={str(o2am):>5} mg/L | O₂PM={str(o2pm):>5} mg/L | TAM={str(tam):>5}°C | TPM={str(tpm):>5}°C")
-            # Historial 3 días anteriores
             if len(p["historial"]) > 1:
                 hist = " | ".join([f"{h['fecha']}: O₂AM={h.get('oxigeno_am','—')}" for h in p["historial"][:-1]])
                 lineas.append(f"          Ant: {hist}")
         lineas.append("")
 
-        # Todas las piscinas del campo
         lineas.append("   📋 TODAS LAS PISCINAS:")
         for p in piscinas_data:
             u = p["ultimo"]
@@ -304,7 +297,6 @@ def construir_email_gerencia(sector, piscinas_data, fecha):
     if not alertas and fecha != "resumen_diario":
         return None, None
 
-    # Calcular promedios
     o2_am_vals = [p["ultimo"]["oxigeno_am"] for p in piscinas_data if p["ultimo"].get("oxigeno_am") is not None]
     o2_pm_vals = [p["ultimo"]["oxigeno_pm"] for p in piscinas_data if p["ultimo"].get("oxigeno_pm") is not None]
     temp_am_vals = [p["ultimo"]["temp_am"] for p in piscinas_data if p["ultimo"].get("temp_am") is not None]
@@ -322,7 +314,6 @@ def construir_email_gerencia(sector, piscinas_data, fecha):
     nivel = "🔴 ALERTA CRÍTICA" if criticos else ("🟡 VIGILANCIA" if alertas else "🟢 RESUMEN DIARIO")
     asunto = f"{nivel} — {sector} — {fecha}"
 
-    # Construir texto
     lineas = [
         f"{nivel}",
         f"Campo: {sector} | Fecha: {fecha}",
@@ -346,10 +337,9 @@ def construir_email_gerencia(sector, piscinas_data, fecha):
             lineas.append(f"    O₂ AM: {o2am} mg/L {estado_am}  |  O₂ PM: {o2pm} mg/L {estado_pm}")
             lineas.append(f"    Temp AM: {tam}°C  |  Temp PM: {tpm}°C")
 
-            # Historial 3 días anteriores
             if len(p["historial"]) > 1:
                 lineas.append(f"    Últimos días:")
-                for h in p["historial"][:-1]:  # excluir el más reciente
+                for h in p["historial"][:-1]:
                     lineas.append(f"      {h['fecha']}: O₂ AM={h.get('oxigeno_am','—')} | O₂ PM={h.get('oxigeno_pm','—')}")
             lineas.append("")
 
@@ -366,7 +356,6 @@ def construir_email_gerencia(sector, piscinas_data, fecha):
     lineas.append(f"  Temp PM promedio: {prom_temp_pm}°C")
     lineas.append("")
 
-    # Todas las piscinas
     lineas.append("─" * 50)
     lineas.append("📋 DETALLE COMPLETO DE PISCINAS:")
     lineas.append("")
@@ -449,20 +438,46 @@ def resumen_diario():
         print("Enviando resumen diario...")
         fecha_hoy = (datetime.utcnow() - timedelta(hours=5)).strftime("%d/%m/%Y")
         usuarios = leer_usuarios()
-        gerentes = [u for u in usuarios if u.get("rol") == "gerencia" or
-                    set(u.get("campos", [])) >= set(CAMPOS)]
-
         enviados = 0
-        for campo in CAMPOS:
-            piscinas_data = get_resumen_campo(campo, dias=4)
-            if not piscinas_data:
+
+        for u in usuarios:
+            if not u.get("email"):
                 continue
-            asunto, cuerpo = construir_email_gerencia(campo, piscinas_data, fecha_hoy)
-            if not asunto:
-                continue
-            for g in gerentes:
-                if g.get("email"):
-                    enviar_email_postmark(g["email"], g.get("nombre",""), asunto, cuerpo)
+            rol = u.get("rol", "biologo")
+
+            if rol == "gerencia":
+                # Un solo email consolidado con todos los campos
+                asunto, cuerpo, html_body = construir_html_gerencia_consolidado(fecha_hoy)
+                if asunto:
+                    enviar_email_postmark(u["email"], u.get("nombre",""), asunto, cuerpo, html=html_body)
+                    enviados += 1
+            else:
+                # Un email por cada campo asignado al biólogo
+                for campo in u.get("campos", []):
+                    piscinas_data = get_resumen_campo(campo, dias=4)
+                    if not piscinas_data:
+                        continue
+                    todas = [{"ps": p["piscina"], **p["ultimo"]} for p in piscinas_data]
+                    alertas = []
+                    for p in piscinas_data:
+                        u2 = p["ultimo"]
+                        eam = estado_o2(u2.get("oxigeno_am"))
+                        epm = estado_o2(u2.get("oxigeno_pm"))
+                        if eam != "normal" or epm != "normal":
+                            alertas.append({
+                                "ps": p["piscina"],
+                                "estado_am": eam,
+                                "estado_pm": epm,
+                                **u2
+                            })
+                    if not alertas:
+                        continue
+                    criticos = [a for a in alertas if a["estado_am"]=="critico" or a["estado_pm"]=="critico"]
+                    nivel = "ALERTA CRITICA" if criticos else "VIGILANCIA"
+                    asunto = f"{'🔴' if criticos else '🟡'} {nivel} - {campo} - {fecha_hoy}"
+                    cuerpo = f"{nivel}\nSector: {campo} | Fecha: {fecha_hoy}"
+                    html_body = construir_html_biologo(campo, alertas, todas, fecha_hoy)
+                    enviar_email_postmark(u["email"], u.get("nombre",""), asunto, cuerpo, html=html_body)
                     enviados += 1
 
         print(f"Resumen diario enviado: {enviados} emails")
@@ -633,13 +648,11 @@ def evaluar_y_notificar(datos, campo_param):
         rol = u.get("rol", "biologo")
 
         if rol == "gerencia":
-            # Email consolidado HTML para gerencia
             asunto, cuerpo, html_body = construir_html_gerencia_consolidado(fecha)
             if asunto:
                 enviar_email_postmark(u["email"], u.get("nombre",""), asunto, cuerpo, html=html_body)
                 enviados += 1
         else:
-            # Email HTML para biólogos
             criticos = [a for a in alertas if a["estado_am"]=="critico" or a["estado_pm"]=="critico"]
             nivel = "ALERTA CRITICA" if criticos else "VIGILANCIA"
             asunto = f"{'🔴' if criticos else '🟡'} {nivel} - {sector} - {fecha}"
