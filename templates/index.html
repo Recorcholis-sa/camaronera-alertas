@@ -69,7 +69,22 @@ td{padding:8px;border-bottom:1px solid #f3f4f6;color:#111}
 .tab-row{display:flex;gap:8px;margin-bottom:16px}
 .tab-btn{flex:1;padding:10px;border-radius:12px;border:1.5px solid #e5e7eb;background:white;font-size:13px;font-weight:600;cursor:pointer;text-align:center;transition:all .15s;color:#374151}
 .tab-btn.active{background:#0F6E56;color:white;border-color:#0F6E56}
-/* HISTÓRICO - RESUMEN */
+/* DASHBOARD GERENCIA */
+.campo-card{background:#f9fafb;border-radius:14px;padding:14px;margin-bottom:10px;cursor:pointer;transition:all .2s;border:1.5px solid #e5e7eb}
+.campo-card:hover{border-color:#1D9E75;background:#f0fdf8}
+.campo-card.critico{border-color:#fca5a5;background:#fef2f2}
+.campo-card.vigilancia{border-color:#fcd34d;background:#fffbeb}
+.campo-card.normal{border-color:#86efac;background:#f0fdf4}
+.campo-card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.campo-card-nombre{font-size:15px;font-weight:700;color:#111}
+.campo-card-fecha{font-size:11px;color:#9ca3af}
+.campo-stats{display:flex;gap:8px;flex-wrap:wrap}
+.stat-pill{padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600}
+.campo-prom{font-size:12px;color:#6b7280;margin-top:6px}
+/* TABLA DÍAS ANTERIORES */
+.hist-mini{font-size:11px;color:#6b7280;margin-top:4px}
+.hist-mini span{margin-right:8px}
+
 .campo-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
 .campo-hist-btn{padding:12px;border-radius:12px;border:1.5px solid #e5e7eb;background:white;font-size:13px;font-weight:600;cursor:pointer;text-align:center;transition:all .15s;color:#374151}
 .campo-hist-btn:hover{border-color:#1D9E75;background:#f0fdf8}
@@ -119,23 +134,32 @@ td{padding:8px;border-bottom:1px solid #f3f4f6;color:#111}
 
 <!-- VIEW 2: GERENCIA -->
 <div class="view" id="v-gerencia">
-  <div class="card">
+  <div class="card" style="max-width:520px">
     <button class="back-btn" onclick="irA('v-inicio')">← Volver</button>
     <h2>👔 Gerencia</h2>
     <div class="tab-row">
-      <button class="tab-btn active" id="g-tab-reg" onclick="switchTab('g','reg')">Registrarme</button>
-      <button class="tab-btn" id="g-tab-hist" onclick="switchTab('g','hist')">📊 Ver histórico</button>
+      <button class="tab-btn active" id="g-tab-dash" onclick="switchTabG('dash')">📊 Dashboard</button>
+      <button class="tab-btn" id="g-tab-hist" onclick="switchTabG('hist')">📈 Histórico</button>
+      <button class="tab-btn" id="g-tab-reg" onclick="switchTabG('reg')">👤 Registrarme</button>
     </div>
-    <div id="g-panel-reg">
+    <!-- DASHBOARD -->
+    <div id="g-panel-dash">
+      <div id="g-dashboard-wrap">
+        <div class="spinner" style="margin:30px auto"></div>
+      </div>
+    </div>
+    <!-- HISTÓRICO -->
+    <div id="g-panel-hist" style="display:none">
+      <div id="hist-wrap-g"></div>
+    </div>
+    <!-- REGISTRO -->
+    <div id="g-panel-reg" style="display:none">
       <p style="font-size:13px;color:#6b7280;margin-bottom:16px">Recibirás alertas de <strong>todos los campos</strong>.</p>
       <div class="field"><label>Nombre completo</label><input id="g-nombre" type="text" placeholder="Ej: Carlos Mendoza"></div>
       <div class="field"><label>Email</label><input id="g-email" type="email" placeholder="tu@email.com"></div>
       <div class="field"><label>WhatsApp</label><input id="g-wa" type="tel" placeholder="593987654321"><div class="hint">Con código de país, sin +</div></div>
       <div id="g-estado"></div>
       <button class="btn btn-green" onclick="registrarGerencia()">✅ Registrarme</button>
-    </div>
-    <div id="g-panel-hist" style="display:none">
-      <div id="hist-wrap-g"></div>
     </div>
   </div>
 </div>
@@ -249,6 +273,7 @@ function irA(vid) {
   window.scrollTo(0,0);
   if (vid==='v-biologo') renderCamposBiologo();
   if (vid==='v-parametrista') renderCamposSel();
+  if (vid==='v-gerencia') cargarDashboard();
 }
 
 function irAFoto(){
@@ -257,8 +282,104 @@ function irAFoto(){
   irA('v-foto');
 }
 
-// ── Tabs ────────────────────────────────────────────────────
-function switchTab(prefix, tab) {
+// ── Tabs gerencia ──────────────────────────────────────────
+function switchTabG(tab) {
+  ['dash','hist','reg'].forEach(t => {
+    document.getElementById(`g-panel-${t}`).style.display = t===tab ? 'block' : 'none';
+    document.getElementById(`g-tab-${t}`).classList.toggle('active', t===tab);
+  });
+  if (tab==='dash') cargarDashboard();
+  if (tab==='hist') { histOrigen='g'; renderSelectorCampos('hist-wrap-g'); }
+}
+
+async function cargarDashboard() {
+  const wrap = document.getElementById('g-dashboard-wrap');
+  wrap.innerHTML = '<div class="spinner" style="margin:30px auto"></div>';
+  try {
+    const r = await fetch('/api/dashboard-gerencia');
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error);
+    renderDashboard(d.resumen, d.fecha);
+  } catch(e) {
+    wrap.innerHTML = `<p style="color:#ef4444;text-align:center;padding:20px">${e.message}</p>`;
+  }
+}
+
+function renderDashboard(resumen, fecha) {
+  const wrap = document.getElementById('g-dashboard-wrap');
+  let totalCriticos = 0, totalVigilancia = 0, totalNormal = 0;
+  resumen.forEach(c => { totalCriticos += c.criticos; totalVigilancia += c.alertas - c.criticos; totalNormal += c.total - c.alertas; });
+
+  let html = `
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+      <div style="flex:1;background:#fef2f2;border-radius:12px;padding:12px;text-align:center;min-width:80px">
+        <div style="font-size:22px;font-weight:700;color:#ef4444">${totalCriticos}</div>
+        <div style="font-size:11px;color:#6b7280">🔴 Crítico</div>
+      </div>
+      <div style="flex:1;background:#fffbeb;border-radius:12px;padding:12px;text-align:center;min-width:80px">
+        <div style="font-size:22px;font-weight:700;color:#f59e0b">${totalVigilancia}</div>
+        <div style="font-size:11px;color:#6b7280">🟡 Vigilancia</div>
+      </div>
+      <div style="flex:1;background:#f0fdf4;border-radius:12px;padding:12px;text-align:center;min-width:80px">
+        <div style="font-size:22px;font-weight:700;color:#22c55e">${totalNormal}</div>
+        <div style="font-size:11px;color:#6b7280">🟢 Normal</div>
+      </div>
+    </div>
+    <p style="font-size:12px;color:#6b7280;margin-bottom:10px">Toca un campo para ver el detalle de piscinas →</p>
+  `;
+
+  resumen.forEach(c => {
+    const cls = c.criticos > 0 ? 'critico' : c.alertas > 0 ? 'vigilancia' : 'normal';
+    const icon = c.criticos > 0 ? '🔴' : c.alertas > 0 ? '🟡' : '🟢';
+    const sinDatos = !c.ultima_fecha;
+
+    html += `<div class="campo-card ${sinDatos?'':''+cls}" onclick="verResumenCampoDesdeGerencia('${c.campo}')">
+      <div class="campo-card-header">
+        <span class="campo-card-nombre">${icon} ${c.campo}</span>
+        <span class="campo-card-fecha">${c.ultima_fecha || 'Sin datos'}</span>
+      </div>`;
+
+    if (!sinDatos) {
+      html += `<div class="campo-stats">
+        <span class="stat-pill rc">${c.criticos} crítico</span>
+        <span class="stat-pill ry">${c.alertas - c.criticos} vigilancia</span>
+        <span class="stat-pill rg">${c.total - c.alertas} normal</span>
+      </div>
+      <div class="campo-prom">O₂ AM promedio: <strong>${c.prom_o2_am ?? '—'} mg/L</strong></div>`;
+
+      // Mostrar piscinas con alerta
+      const pisAlertas = c.piscinas.filter(p =>
+        (p.ultimo?.oxigeno_am != null && p.ultimo.oxigeno_am < 3.5) ||
+        (p.ultimo?.oxigeno_pm != null && p.ultimo.oxigeno_pm < 3.5)
+      );
+      if (pisAlertas.length) {
+        html += `<div style="margin-top:8px;font-size:12px">`;
+        pisAlertas.forEach(p => {
+          const o2am = p.ultimo?.oxigeno_am;
+          const e = o2am != null && o2am < 2.9 ? '🔴' : '🟡';
+          // Historial 3 días anteriores
+          const hist = p.historial.slice(0,-1).map(h => `${h.fecha}: ${h.oxigeno_am??'—'}`).join(' | ');
+          html += `<div style="padding:4px 0;border-bottom:1px solid #f3f4f6">
+            ${e} <strong>Ps ${p.piscina}</strong>: O₂AM=${o2am??'—'} O₂PM=${p.ultimo?.oxigeno_pm??'—'}
+            ${hist ? `<div class="hist-mini">Ant: ${hist}</div>` : ''}
+          </div>`;
+        });
+        html += `</div>`;
+      }
+    } else {
+      html += `<div style="font-size:12px;color:#9ca3af">Sin reportes registrados</div>`;
+    }
+    html += `</div>`;
+  });
+
+  wrap.innerHTML = html;
+}
+
+function verResumenCampoDesdeGerencia(sector) {
+  histOrigen = 'g';
+  verResumenCampo(sector);
+}
+
   document.getElementById(`${prefix}-panel-reg`).style.display = tab==='reg'?'block':'none';
   document.getElementById(`${prefix}-panel-hist`).style.display = tab==='hist'?'block':'none';
   document.getElementById(`${prefix}-tab-reg`).classList.toggle('active', tab==='reg');
@@ -512,7 +633,7 @@ function crearChartDoble(canvasId, labels, datos1, label1, color1, datos2, label
     }
   ];
   if (conLineas) {
-    datasets.push({label:'Crítico O₂',data:datos1.map(()=>3.0),yAxisID:'y',borderColor:'#ef444466',borderWidth:1.5,borderDash:[5,3],pointRadius:0,fill:false});
+    datasets.push({label:'Crítico O₂',data:datos1.map(()=>2.9),yAxisID:'y',borderColor:'#ef444466',borderWidth:1.5,borderDash:[5,3],pointRadius:0,fill:false});
     datasets.push({label:'Vigilancia O₂',data:datos1.map(()=>3.5),yAxisID:'y',borderColor:'#f59e0b66',borderWidth:1.5,borderDash:[5,3],pointRadius:0,fill:false});
   }
   return new Chart(ctx, {
@@ -677,7 +798,7 @@ function mostrarResultado(d){
   document.getElementById('foto-estado').innerHTML=html;
 }
 
-function estO2(v){if(v===null||v===undefined)return 'n';return v<3.0?'c':v<3.5?'v':'n';}
+function estO2(v){if(v===null||v===undefined)return 'n';return v<2.9?'c':v<3.5?'v':'n';}
 
 function resetFoto(){
   archivoFoto=null;
