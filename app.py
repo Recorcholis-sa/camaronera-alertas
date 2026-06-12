@@ -803,7 +803,7 @@ def construir_html_gerencia_consolidado(fecha):
     cuerpo = f"{nivel_texto} — {fecha}\nCampos con alertas: {len(campos_info)} | Críticas: {total_criticos} | Vigilancia: {total_vigilancia}"
     return asunto, cuerpo, html
 
-(dest_email, dest_nombre, asunto, cuerpo, html=None):
+def enviar_email_postmark(dest_email, dest_nombre, asunto, cuerpo, html=None):
     try:
         print(f"Enviando Postmark a {dest_email}...")
         payload = {
