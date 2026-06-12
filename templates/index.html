@@ -380,6 +380,8 @@ function verResumenCampoDesdeGerencia(sector) {
   verResumenCampo(sector);
 }
 
+// ── Tabs biólogo ────────────────────────────────────────────
+function switchTab(prefix, tab) {
   document.getElementById(`${prefix}-panel-reg`).style.display = tab==='reg'?'block':'none';
   document.getElementById(`${prefix}-panel-hist`).style.display = tab==='hist'?'block':'none';
   document.getElementById(`${prefix}-tab-reg`).classList.toggle('active', tab==='reg');
