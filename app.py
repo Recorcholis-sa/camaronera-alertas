@@ -454,19 +454,20 @@ def get_piscinas():
 def extraer_con_ia(imagen_b64, mime, campo=""):
     if campo == FIMASA3:
         prompt = (
-            "Eres un experto en acuicultura leyendo hojas de parametros de piscinas camaroneras de FIMASA SECTOR 3. "
-            "Este campo tiene 4 mediciones por piscina al dia: a las 00:30, 02:30, 05:00 y 16:00. "
-            "Cada medicion tiene oxigeno (mg/L) y temperatura (grados C). "
-            "Lee cada valor DOS VECES antes de confirmar. "
+            "Eres un experto leyendo hojas de parametros de piscinas camaroneras de FIMASA SECTOR 3. "
+            "Este block tiene columnas que registran 4 mediciones por piscina usando nombres de columna engañosos. "
+            "Las 4 mediciones y como leerlas son: "
+            "MEDICION 00:30 (oxigeno_00 = columna OXIGENO AM, temp_00 = columna TEMPERATURA AM). "
+            "MEDICION 02:30 (oxigeno_02 = columna OXIGENO PM, temp_02 = columna TEMPERATURA PM). "
+            "MEDICION 05:00 (oxigeno_am = columna TB CM, temp_am = columna COLOR). "
+            "MEDICION 16:00 (oxigeno_pm = columna ENT bajo CALIBRACION, temp_pm = columna SALID bajo CALIBRACION). "
+            "El orden de columnas de izquierda a derecha es: PS, OXIGENO AM, OXIGENO PM, TEMPERATURA AM, TEMPERATURA PM, TB CM, COLOR, ENT, SALID. "
+            "Lee cada valor DOS VECES verificando digito por digito. "
             "Rangos tipicos: oxigeno 1.0-15.0 mg/L, temperatura 20.0-35.0 grados C. "
             "Si un valor es ilegible usa null. "
-            "Devuelve SOLO JSON valido sin texto extra, sin markdown, sin explicaciones. "
-            "El JSON debe tener exactamente esta estructura: "
-            '{"fecha":"DD/MM/YYYY","sector":"Fimasa 3","piscinas":[{"ps":"1","oxigeno_00":3.5,"temp_00":28.1,"oxigeno_02":3.2,"temp_02":27.8,"oxigeno_am":3.8,"temp_am":27.9,"oxigeno_pm":4.0,"temp_pm":28.5}]} '
-            "Donde oxigeno_00/temp_00 es la medicion de las 00:30, "
-            "oxigeno_02/temp_02 es la de las 02:30, "
-            "oxigeno_am/temp_am es la de las 05:00, "
-            "oxigeno_pm/temp_pm es la de las 16:00."
+            "Devuelve SOLO JSON valido sin texto extra ni markdown. "
+            "Estructura exacta requerida: "
+            '{"fecha":"DD/MM/YYYY","sector":"Fimasa 3","piscinas":[{"ps":"1","oxigeno_00":3.3,"temp_00":28.0,"oxigeno_02":2.8,"temp_02":28.1,"oxigeno_am":2.4,"temp_am":27.8,"oxigeno_pm":12.5,"temp_pm":32.0}]}'
         )
         max_tokens = 4000
     else:
