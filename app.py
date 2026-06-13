@@ -277,11 +277,14 @@ def procesar():
         print(f"IA respondio: {len(datos.get('piscinas',[]))} piscinas")
         if campo:
             datos["sector"] = campo
-        guardar_lecturas(datos.get("sector", campo), datos.get("fecha", ""), datos.get("piscinas", []))
+        # Usar fecha del servidor (hora Ecuador UTC-5), no la del block
+        fecha_hoy = (datetime.utcnow() - timedelta(hours=5)).strftime("%d/%m/%Y")
+        datos["fecha"] = fecha_hoy
+        guardar_lecturas(datos.get("sector", campo), fecha_hoy, datos.get("piscinas", []))
         enviados = evaluar_y_notificar(datos, campo)
         return jsonify({
             "ok": True,
-            "fecha": datos.get("fecha"),
+            "fecha": fecha_hoy,
             "sector": datos.get("sector"),
             "piscinas": datos.get("piscinas", []),
             "alertas_enviadas": enviados
@@ -455,7 +458,7 @@ def extraer_con_ia(imagen_b64, mime, campo=""):
     if campo == FIMASA3:
         prompt = (
             "Eres un experto leyendo hojas de parametros de piscinas camaroneras de FIMASA SECTOR 3. "
-            "Este block tiene columnas que registran 4 mediciones por piscina usando nombres de columna engañosos. "
+            "Este block tiene columnas que registran 4 mediciones por piscina usando nombres de columna enganosos. "
             "Las 4 mediciones y como leerlas son: "
             "MEDICION 00:30 (oxigeno_00 = columna OXIGENO AM, temp_00 = columna TEMPERATURA AM). "
             "MEDICION 02:30 (oxigeno_02 = columna OXIGENO PM, temp_02 = columna TEMPERATURA PM). "
@@ -467,7 +470,7 @@ def extraer_con_ia(imagen_b64, mime, campo=""):
             "Si un valor es ilegible usa null. "
             "Devuelve SOLO JSON valido sin texto extra ni markdown. "
             "Estructura exacta requerida: "
-            '{"fecha":"DD/MM/YYYY","sector":"Fimasa 3","piscinas":[{"ps":"1","oxigeno_00":3.3,"temp_00":28.0,"oxigeno_02":2.8,"temp_02":28.1,"oxigeno_am":2.4,"temp_am":27.8,"oxigeno_pm":12.5,"temp_pm":32.0}]}'
+            '{"sector":"Fimasa 3","piscinas":[{"ps":"1","oxigeno_00":3.3,"temp_00":28.0,"oxigeno_02":2.8,"temp_02":28.1,"oxigeno_am":2.4,"temp_am":27.8,"oxigeno_pm":12.5,"temp_pm":32.0}]}'
         )
         max_tokens = 4000
     else:
@@ -478,7 +481,7 @@ def extraer_con_ia(imagen_b64, mime, campo=""):
             "Distingue con cuidado: 3 vs 8, 1 vs 7, 5 vs 6, 0 vs 9, punto decimal vs coma. "
             "Si un valor es ilegible usa null. "
             "Devuelve SOLO JSON valido sin texto extra ni explicaciones: "
-            '{"fecha":"DD/MM/YYYY","sector":"nombre","piscinas":[{"ps":"codigo","oxigeno_am":3.5,"oxigeno_pm":3.2,"temp_am":28.1,"temp_pm":27.8}]}'
+            '{"sector":"nombre","piscinas":[{"ps":"codigo","oxigeno_am":3.5,"oxigeno_pm":3.2,"temp_am":28.1,"temp_pm":27.8}]}'
         )
         max_tokens = 2000
 
