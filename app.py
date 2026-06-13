@@ -16,11 +16,6 @@ CAMPOS = ["Rolesa 1","Rolesa 2","Pantrusko 1","Pantrusko 2",
           "Caesa 1","Caesa 2","Fimasa 1","Fimasa 2","Fimasa 3",
           "Recorcholis 1","Recorcholis 2"]
 
-# Fimasa 3 tiene 4 mediciones: 00:30, 02:30, 05:00 (AM), 16:00 (PM)
-# oxigeno_00/temp_00 = 00:30
-# oxigeno_02/temp_02 = 02:30
-# oxigeno_am/temp_am = 05:00
-# oxigeno_pm/temp_pm = 16:00 (solo dashboard, no email)
 FIMASA3 = "Fimasa 3"
 
 import psycopg2
@@ -57,12 +52,11 @@ def init_db():
             created_at TEXT
         )
     """)
-    # Migración: agregar columnas para Fimasa 3
-    for col, tipo in [("oxigeno_00","REAL"), ("temp_00","REAL"), ("oxigeno_02","REAL"), ("temp_02","REAL")]:
+    for col, tipo in [("oxigeno_00","REAL"),("temp_00","REAL"),("oxigeno_02","REAL"),("temp_02","REAL")]:
         try:
             cur.execute(f"ALTER TABLE lecturas ADD COLUMN IF NOT EXISTS {col} {tipo}")
         except Exception as e:
-            print(f"Columna {col} ya existe o error: {e}")
+            print(f"Columna {col}: {e}")
     con.commit()
     cur.close()
     con.close()
@@ -185,7 +179,7 @@ def guardar_usuario_db(nombre, email, whatsapp, campos, rol):
         print(f"Error guardando usuario: {e}")
         return False
 
-# ── Resumen por campo (últimos N días) ─────────────────────
+# ── Resumen por campo ──────────────────────────────────────
 def get_resumen_campo(sector, dias=3):
     try:
         con = get_conn()
@@ -195,13 +189,13 @@ def get_resumen_campo(sector, dias=3):
                    oxigeno_00, temp_00, oxigeno_02, temp_02
             FROM lecturas
             WHERE sector=%s AND corrida=(
-                SELECT MAX(corrida) FROM lecturas l2 WHERE l2.sector=lecturas.sector AND l2.piscina=lecturas.piscina
+                SELECT MAX(corrida) FROM lecturas l2
+                WHERE l2.sector=lecturas.sector AND l2.piscina=lecturas.piscina
             )
             ORDER BY piscina, created_at DESC
         """, (sector,))
         rows = cur.fetchall()
         cur.close(); con.close()
-
         piscinas = {}
         for r in rows:
             ps = r["piscina"]
@@ -209,20 +203,14 @@ def get_resumen_campo(sector, dias=3):
                 piscinas[ps] = []
             if len(piscinas[ps]) < dias:
                 piscinas[ps].append(dict(r))
-
         def sort_key(p):
             try: return (0, int(p))
             except: return (1, p)
-
         resultado = []
         for ps in sorted(piscinas.keys(), key=sort_key):
             historial = piscinas[ps]
             ultimo = historial[0] if historial else {}
-            resultado.append({
-                "piscina": ps,
-                "ultimo": ultimo,
-                "historial": list(reversed(historial))
-            })
+            resultado.append({"piscina": ps, "ultimo": ultimo, "historial": list(reversed(historial))})
         return resultado
     except Exception as e:
         print(f"Error get_resumen_campo: {e}")
@@ -236,114 +224,14 @@ def get_resumen_todos_campos():
             resumen[campo] = datos
     return resumen
 
-# ── Helpers alertas Fimasa 3 ───────────────────────────────
+# ── Helpers Fimasa 3 ───────────────────────────────────────
 def tiene_alerta_fimasa3(u):
-    """Verifica si alguna de las 4 mediciones de Fimasa 3 tiene alerta."""
     vals = [u.get("oxigeno_00"), u.get("oxigeno_02"), u.get("oxigeno_am"), u.get("oxigeno_pm")]
     return any(v is not None and v < O2_VIGILANCIA for v in vals)
 
 def tiene_critico_fimasa3(u):
     vals = [u.get("oxigeno_00"), u.get("oxigeno_02"), u.get("oxigeno_am"), u.get("oxigeno_pm")]
     return any(v is not None and v < O2_CRITICO for v in vals)
-
-# ── Email detallado gerencia ───────────────────────────────
-def construir_email_gerencia_consolidado(fecha):
-    campos_con_alertas = []
-    total_criticos = 0
-    total_vigilancia = 0
-
-    for campo in CAMPOS:
-        piscinas_data = get_resumen_campo(campo, dias=4)
-        if not piscinas_data:
-            continue
-
-        if campo == FIMASA3:
-            alertas = [p for p in piscinas_data if tiene_alerta_fimasa3(p["ultimo"])]
-            criticos = [p for p in alertas if tiene_critico_fimasa3(p["ultimo"])]
-        else:
-            alertas = [p for p in piscinas_data if
-                       (p["ultimo"].get("oxigeno_am") is not None and p["ultimo"]["oxigeno_am"] < O2_VIGILANCIA) or
-                       (p["ultimo"].get("oxigeno_pm") is not None and p["ultimo"]["oxigeno_pm"] < O2_VIGILANCIA)]
-            criticos = [p for p in alertas if
-                        (p["ultimo"].get("oxigeno_am") is not None and p["ultimo"]["oxigeno_am"] < O2_CRITICO) or
-                        (p["ultimo"].get("oxigeno_pm") is not None and p["ultimo"]["oxigeno_pm"] < O2_CRITICO)]
-
-        if alertas:
-            campos_con_alertas.append({"campo": campo, "piscinas": piscinas_data, "alertas": alertas, "criticos": criticos})
-            total_criticos += len(criticos)
-            total_vigilancia += len(alertas) - len(criticos)
-
-    if not campos_con_alertas:
-        return None, None
-
-    nivel = "🔴 ALERTA CRÍTICA" if total_criticos > 0 else "🟡 VIGILANCIA"
-    asunto = f"{nivel} — Reporte Consolidado — {fecha}"
-
-    lineas = [
-        f"{nivel} — REPORTE CONSOLIDADO",
-        f"Fecha: {fecha}",
-        f"Campos con alertas: {len(campos_con_alertas)} | Piscinas críticas: {total_criticos} | En vigilancia: {total_vigilancia}",
-        "=" * 60, ""
-    ]
-
-    for info in campos_con_alertas:
-        campo = info["campo"]
-        piscinas_data = info["piscinas"]
-        o2_am_vals = [p["ultimo"]["oxigeno_am"] for p in piscinas_data if p["ultimo"].get("oxigeno_am") is not None]
-        temp_am_vals = [p["ultimo"]["temp_am"] for p in piscinas_data if p["ultimo"].get("temp_am") is not None]
-        prom_o2_am  = round(sum(o2_am_vals)/len(o2_am_vals), 2) if o2_am_vals else "—"
-        prom_temp_am = round(sum(temp_am_vals)/len(temp_am_vals), 1) if temp_am_vals else "—"
-
-        lineas.append(f"📍 CAMPO: {campo}")
-        lineas.append(f"   Promedio O₂ 05:00: {prom_o2_am} mg/L | Promedio Temp: {prom_temp_am}°C")
-        lineas.append(f"   Total piscinas: {len(piscinas_data)} | Alertas: {len(info['alertas'])} | Críticas: {len(info['criticos'])}")
-        lineas.append("")
-        lineas.append("   ⚠️  PISCINAS EN ALERTA:")
-
-        for p in info["alertas"]:
-            u = p["ultimo"]
-            if campo == FIMASA3:
-                o200 = u.get("oxigeno_00", "—"); t00 = u.get("temp_00", "—")
-                o202 = u.get("oxigeno_02", "—"); t02 = u.get("temp_02", "—")
-                o2am = u.get("oxigeno_am", "—"); tam  = u.get("temp_am", "—")
-                e = "🔴" if tiene_critico_fimasa3(u) else "🟡"
-                lineas.append(f"   {e} Ps {p['piscina']:>3}: 00:30 O₂={str(o200):>5} T={str(t00):>5}°C | 02:30 O₂={str(o202):>5} T={str(t02):>5}°C | 05:00 O₂={str(o2am):>5} T={str(tam):>5}°C")
-            else:
-                o2am = u.get("oxigeno_am", "—"); o2pm = u.get("oxigeno_pm", "—")
-                tam  = u.get("temp_am", "—");  tpm  = u.get("temp_pm", "—")
-                e = "🔴" if (isinstance(o2am,float) and o2am<O2_CRITICO) or (isinstance(o2pm,float) and o2pm<O2_CRITICO) else "🟡"
-                lineas.append(f"   {e} Ps {p['piscina']:>3}: O₂AM={str(o2am):>5} mg/L | O₂PM={str(o2pm):>5} mg/L | TAM={str(tam):>5}°C | TPM={str(tpm):>5}°C")
-            if len(p["historial"]) > 1:
-                hist = " | ".join([f"{h['fecha']}: O₂={h.get('oxigeno_am','—')}" for h in p["historial"][:-1]])
-                lineas.append(f"          Ant: {hist}")
-        lineas.append("")
-        lineas.append("─" * 60)
-        lineas.append("")
-
-    cuerpo = "\n".join(lineas)
-    return asunto, cuerpo
-
-def construir_email_gerencia(sector, piscinas_data, fecha):
-    if sector == FIMASA3:
-        alertas = [p for p in piscinas_data if tiene_alerta_fimasa3(p["ultimo"])]
-    else:
-        alertas = [p for p in piscinas_data if
-                   (p["ultimo"].get("oxigeno_am") is not None and p["ultimo"]["oxigeno_am"] < O2_VIGILANCIA) or
-                   (p["ultimo"].get("oxigeno_pm") is not None and p["ultimo"]["oxigeno_pm"] < O2_VIGILANCIA)]
-
-    if not alertas and fecha != "resumen_diario":
-        return None, None
-
-    criticos = [p for p in alertas if
-                (sector == FIMASA3 and tiene_critico_fimasa3(p["ultimo"])) or
-                (sector != FIMASA3 and (
-                    (p["ultimo"].get("oxigeno_am") is not None and p["ultimo"]["oxigeno_am"] < O2_CRITICO) or
-                    (p["ultimo"].get("oxigeno_pm") is not None and p["ultimo"]["oxigeno_pm"] < O2_CRITICO)))]
-
-    nivel = "🔴 ALERTA CRÍTICA" if criticos else ("🟡 VIGILANCIA" if alertas else "🟢 RESUMEN DIARIO")
-    asunto = f"{nivel} — {sector} — {fecha}"
-    cuerpo = f"{nivel}\nCampo: {sector} | Fecha: {fecha}"
-    return asunto, cuerpo
 
 # ── Rutas ──────────────────────────────────────────────────
 @app.route("/")
@@ -404,18 +292,15 @@ def procesar():
 
 @app.route("/api/resumen-diario", methods=["GET", "POST"])
 def resumen_diario():
-    """Endpoint para el cron job de resumen diario a las 6 AM Ecuador."""
     try:
         print("Enviando resumen diario...")
         fecha_hoy = (datetime.utcnow() - timedelta(hours=5)).strftime("%d/%m/%Y")
         usuarios = leer_usuarios()
         enviados = 0
-
         for u in usuarios:
             if not u.get("email"):
                 continue
             rol = u.get("rol", "biologo")
-
             if rol == "gerencia":
                 asunto, cuerpo, html_body = construir_html_gerencia_consolidado(fecha_hoy)
                 if asunto:
@@ -431,26 +316,16 @@ def resumen_diario():
                     for p in piscinas_data:
                         u2 = p["ultimo"]
                         if campo == FIMASA3:
-                            # Para Fimasa 3 evalúa las 3 mediciones de madrugada (no PM que es solo dashboard)
                             e00 = estado_o2(u2.get("oxigeno_00"))
                             e02 = estado_o2(u2.get("oxigeno_02"))
                             eam = estado_o2(u2.get("oxigeno_am"))
                             if e00 != "normal" or e02 != "normal" or eam != "normal":
-                                alertas.append({
-                                    "ps": p["piscina"],
-                                    "estado_00": e00, "estado_02": e02, "estado_am": eam,
-                                    "estado_pm": "normal",
-                                    **u2
-                                })
+                                alertas.append({"ps": p["piscina"], "estado_00": e00, "estado_02": e02, "estado_am": eam, "estado_pm": "normal", **u2})
                         else:
                             eam = estado_o2(u2.get("oxigeno_am"))
                             epm = estado_o2(u2.get("oxigeno_pm"))
                             if eam != "normal" or epm != "normal":
-                                alertas.append({
-                                    "ps": p["piscina"],
-                                    "estado_am": eam, "estado_pm": epm,
-                                    **u2
-                                })
+                                alertas.append({"ps": p["piscina"], "estado_am": eam, "estado_pm": epm, **u2})
                     if not alertas:
                         continue
                     if campo == FIMASA3:
@@ -466,7 +341,6 @@ def resumen_diario():
                         html_body = construir_html_biologo(campo, alertas, todas, fecha_hoy)
                     enviar_email_postmark(u["email"], u.get("nombre",""), asunto, cuerpo, html=html_body)
                     enviados += 1
-
         print(f"Resumen diario enviado: {enviados} emails")
         return jsonify({"ok": True, "enviados": enviados, "fecha": fecha_hoy})
     except Exception as e:
@@ -493,14 +367,10 @@ def dashboard_gerencia():
             o2_am_vals = [p["ultimo"]["oxigeno_am"] for p in piscinas if p["ultimo"].get("oxigeno_am") is not None]
             prom_o2_am = round(sum(o2_am_vals)/len(o2_am_vals), 2) if o2_am_vals else None
             resultado.append({
-                "campo": campo,
-                "total": len(piscinas),
-                "alertas": alertas,
-                "criticos": criticos,
+                "campo": campo, "total": len(piscinas), "alertas": alertas, "criticos": criticos,
                 "prom_o2_am": prom_o2_am,
                 "ultima_fecha": piscinas[0]["ultimo"].get("fecha") if piscinas and piscinas[0]["ultimo"] else None,
-                "piscinas": piscinas,
-                "es_fimasa3": campo == FIMASA3
+                "piscinas": piscinas, "es_fimasa3": campo == FIMASA3
             })
         return jsonify({"ok": True, "resumen": resultado, "fecha": fecha_hoy})
     except Exception as e:
@@ -583,36 +453,37 @@ def get_piscinas():
 # ── IA ─────────────────────────────────────────────────────
 def extraer_con_ia(imagen_b64, mime, campo=""):
     if campo == FIMASA3:
-        prompt = ('Eres un experto en acuicultura leyendo hojas de parámetros de piscinas camaroneras de FIMASA SECTOR 3. '
-                  'Este campo tiene 4 mediciones por piscina: 00:30 AM, 02:30 AM, 05:00 AM y 16:00 PM. '
-                  'Cada medición tiene oxígeno y temperatura. '
-                  'Lee cada valor DOS VECES antes de confirmar. '
-                  'Rangos típicos: oxígeno 1.0-15.0 mg/L, temperatura 20.0-35.0°C. '
-                  'Distingue con cuidado: 3 vs 8, 1 vs 7, 5 vs 6, 0 vs 9, punto decimal vs coma. '
-                  'Si un valor es ilegible usa null. '
-                  'Devuelve SOLO JSON sin texto extra: '
-                  '{"fecha":"DD/MM/YYYY","sector":"Fimasa 3","piscinas":['
-                  '{"ps":"codigo",'
-                  '"oxigeno_00":num_o_null,"temp_00":num_o_null,'
-                  '"oxigeno_02":num_o_null,"temp_02":num_o_null,'
-                  '"oxigeno_am":num_o_null,"temp_am":num_o_null,'
-                  '"oxigeno_pm":num_o_null,"temp_pm":num_o_null}]}  '
-                  'Donde: oxigeno_00/temp_00=medicion 00:30, oxigeno_02/temp_02=medicion 02:30, '
-                  'oxigeno_am/temp_am=medicion 05:00, oxigeno_pm/temp_pm=medicion 16:00.')
+        prompt = (
+            "Eres un experto en acuicultura leyendo hojas de parametros de piscinas camaroneras de FIMASA SECTOR 3. "
+            "Este campo tiene 4 mediciones por piscina al dia: a las 00:30, 02:30, 05:00 y 16:00. "
+            "Cada medicion tiene oxigeno (mg/L) y temperatura (grados C). "
+            "Lee cada valor DOS VECES antes de confirmar. "
+            "Rangos tipicos: oxigeno 1.0-15.0 mg/L, temperatura 20.0-35.0 grados C. "
+            "Si un valor es ilegible usa null. "
+            "Devuelve SOLO JSON valido sin texto extra, sin markdown, sin explicaciones. "
+            "El JSON debe tener exactamente esta estructura: "
+            '{"fecha":"DD/MM/YYYY","sector":"Fimasa 3","piscinas":[{"ps":"1","oxigeno_00":3.5,"temp_00":28.1,"oxigeno_02":3.2,"temp_02":27.8,"oxigeno_am":3.8,"temp_am":27.9,"oxigeno_pm":4.0,"temp_pm":28.5}]} '
+            "Donde oxigeno_00/temp_00 es la medicion de las 00:30, "
+            "oxigeno_02/temp_02 es la de las 02:30, "
+            "oxigeno_am/temp_am es la de las 05:00, "
+            "oxigeno_pm/temp_pm es la de las 16:00."
+        )
+        max_tokens = 4000
     else:
-        prompt = ('Eres un experto en acuicultura leyendo hojas de parámetros de piscinas camaroneras. '
-                  'Debes leer cada valor DOS VECES antes de confirmar. '
-                  'Rangos típicos: oxígeno 1.0-15.0 mg/L, temperatura 20.0-35.0°C. '
-                  'Distingue con cuidado: 3 vs 8, 1 vs 7, 5 vs 6, 0 vs 9, punto decimal vs coma. '
-                  'Si un valor es ilegible usa null. '
-                  'Devuelve SOLO JSON sin texto extra ni explicaciones: '
-                  '{"fecha":"DD/MM/YYYY","sector":"nombre","piscinas":['
-                  '{"ps":"codigo","oxigeno_am":num_o_null,"oxigeno_pm":num_o_null,'
-                  '"temp_am":num_o_null,"temp_pm":num_o_null}]}')
+        prompt = (
+            "Eres un experto en acuicultura leyendo hojas de parametros de piscinas camaroneras. "
+            "Lee cada valor DOS VECES antes de confirmar. "
+            "Rangos tipicos: oxigeno 1.0-15.0 mg/L, temperatura 20.0-35.0 grados C. "
+            "Distingue con cuidado: 3 vs 8, 1 vs 7, 5 vs 6, 0 vs 9, punto decimal vs coma. "
+            "Si un valor es ilegible usa null. "
+            "Devuelve SOLO JSON valido sin texto extra ni explicaciones: "
+            '{"fecha":"DD/MM/YYYY","sector":"nombre","piscinas":[{"ps":"codigo","oxigeno_am":3.5,"oxigeno_pm":3.2,"temp_am":28.1,"temp_pm":27.8}]}'
+        )
+        max_tokens = 2000
 
     payload = {
         "model": "claude-opus-4-6",
-        "max_tokens": 2000,
+        "max_tokens": max_tokens,
         "messages": [{"role": "user", "content": [
             {"type": "image", "source": {"type": "base64", "media_type": mime, "data": imagen_b64}},
             {"type": "text", "text": prompt}
@@ -623,7 +494,7 @@ def extraer_con_ia(imagen_b64, mime, campo=""):
         data=json.dumps(payload).encode(),
         headers={"Content-Type":"application/json","x-api-key":ANTHROPIC_API_KEY,"anthropic-version":"2023-06-01"}
     )
-    with urllib.request.urlopen(req, timeout=55) as r:
+    with urllib.request.urlopen(req, timeout=60) as r:
         resp = json.loads(r.read())
     text = "".join(b.get("text","") for b in resp["content"]).strip()
     if "```" in text:
@@ -646,10 +517,8 @@ def evaluar_y_notificar(datos, campo_param):
     sector = datos.get("sector", campo_param)
     fecha  = datos.get("fecha", "")
     alertas = []
-
     for p in datos.get("piscinas", []):
         if sector == FIMASA3:
-            # Para Fimasa 3 evalúa 00:30, 02:30 y 05:00 (PM es solo dashboard)
             e00 = estado_o2(p.get("oxigeno_00"))
             e02 = estado_o2(p.get("oxigeno_02"))
             eam = estado_o2(p.get("oxigeno_am"))
@@ -660,15 +529,12 @@ def evaluar_y_notificar(datos, campo_param):
             epm = estado_o2(p.get("oxigeno_pm"))
             if eam != "normal" or epm != "normal":
                 alertas.append({**p, "estado_am": eam, "estado_pm": epm})
-
     if not alertas:
         print("Todas las piscinas en rango normal")
         return 0
-
     print(f"Alertas: {len(alertas)} piscinas, sector: {sector}")
     enviados = 0
     vistos = set()
-
     for u in usuarios:
         if u.get("email") in vistos:
             continue
@@ -676,9 +542,7 @@ def evaluar_y_notificar(datos, campo_param):
         if not any(sector.lower() in c or c in sector.lower() for c in campos_u):
             continue
         vistos.add(u.get("email"))
-
         rol = u.get("rol", "biologo")
-
         if rol == "gerencia":
             asunto, cuerpo, html_body = construir_html_gerencia_consolidado(fecha)
             if asunto:
@@ -698,7 +562,6 @@ def evaluar_y_notificar(datos, campo_param):
                 html_body = construir_html_biologo(sector, alertas, datos.get("piscinas",[]), fecha)
             enviar_email_postmark(u["email"], u.get("nombre",""), asunto, cuerpo, html=html_body)
             enviados += 1
-
     print(f"Emails enviados: {enviados}")
     return enviados
 
@@ -721,7 +584,6 @@ def construir_html_biologo(sector, alertas_data, todas_piscinas, fecha):
     vigilancia= [p for p in alertas_data if p not in criticos]
     ps_alerta = {p["ps"] for p in alertas_data}
     normales  = [p for p in todas_piscinas if p["ps"] not in ps_alerta]
-
     nivel_color = "#dc2626" if criticos else "#d97706"
     nivel_texto = "🔴 ALERTA CRÍTICA" if criticos else "🟡 VIGILANCIA"
 
@@ -746,10 +608,10 @@ def construir_html_biologo(sector, alertas_data, todas_piscinas, fecha):
 
     o2am_v = [p.get("oxigeno_am") for p in todas_piscinas if p.get("oxigeno_am") is not None]
     o2pm_v = [p.get("oxigeno_pm") for p in todas_piscinas if p.get("oxigeno_pm") is not None]
-    tam_v  = [p.get("temp_am")    for p in todas_piscinas if p.get("temp_am")    is not None]
+    tam_v  = [p.get("temp_am") for p in todas_piscinas if p.get("temp_am") is not None]
     prom_o2am = round(sum(o2am_v)/len(o2am_v),2) if o2am_v else "—"
     prom_o2pm = round(sum(o2pm_v)/len(o2pm_v),2) if o2pm_v else "—"
-    prom_tam  = round(sum(tam_v)/len(tam_v),1)   if tam_v  else "—"
+    prom_tam  = round(sum(tam_v)/len(tam_v),1) if tam_v else "—"
 
     html = f"""<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
       <div style="background:{nivel_color};color:white;padding:20px;border-radius:12px 12px 0 0;text-align:center">
@@ -781,12 +643,10 @@ def construir_html_biologo(sector, alertas_data, todas_piscinas, fecha):
     return html
 
 def construir_html_biologo_fimasa3(sector, alertas_data, todas_piscinas, fecha):
-    """Email especial para Fimasa 3 con 3 mediciones de madrugada."""
     criticos  = [p for p in alertas_data if p.get("estado_00")=="critico" or p.get("estado_02")=="critico" or p.get("estado_am")=="critico"]
     vigilancia= [p for p in alertas_data if p not in criticos]
     ps_alerta = {p["ps"] for p in alertas_data}
     normales  = [p for p in todas_piscinas if p["ps"] not in ps_alerta]
-
     nivel_color = "#dc2626" if criticos else "#d97706"
     nivel_texto = "🔴 ALERTA CRÍTICA" if criticos else "🟡 VIGILANCIA"
 
@@ -808,22 +668,21 @@ def construir_html_biologo_fimasa3(sector, alertas_data, todas_piscinas, fecha):
           <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-top:none">
             <thead>
               <tr style="background:#e0f2fe">
-                <th rowspan="2" style="padding:6px;text-align:center;font-size:11px;color:#374151;border-bottom:1px solid #e5e7eb;border-right:1px solid #e5e7eb">PS</th>
-                <th colspan="2" style="padding:6px;text-align:center;font-size:11px;color:#0369a1;border-bottom:1px solid #bae6fd;border-right:1px solid #e5e7eb">00:30</th>
-                <th colspan="2" style="padding:6px;text-align:center;font-size:11px;color:#0369a1;border-bottom:1px solid #bae6fd;border-right:1px solid #e5e7eb">02:30</th>
+                <th rowspan="2" style="padding:6px;text-align:center;font-size:11px;color:#374151;border-bottom:1px solid #e5e7eb">PS</th>
+                <th colspan="2" style="padding:6px;text-align:center;font-size:11px;color:#0369a1;border-bottom:1px solid #bae6fd">00:30</th>
+                <th colspan="2" style="padding:6px;text-align:center;font-size:11px;color:#0369a1;border-bottom:1px solid #bae6fd">02:30</th>
                 <th colspan="2" style="padding:6px;text-align:center;font-size:11px;color:#0369a1;border-bottom:1px solid #bae6fd">05:00</th>
               </tr>
               <tr style="background:#f0f9ff">
                 <th style="padding:5px;text-align:center;font-size:10px;color:#6b7280;border-bottom:1px solid #e5e7eb">O₂</th>
-                <th style="padding:5px;text-align:center;font-size:10px;color:#6b7280;border-bottom:1px solid #e5e7eb;border-right:1px solid #e5e7eb">T°</th>
+                <th style="padding:5px;text-align:center;font-size:10px;color:#6b7280;border-bottom:1px solid #e5e7eb">T°</th>
                 <th style="padding:5px;text-align:center;font-size:10px;color:#6b7280;border-bottom:1px solid #e5e7eb">O₂</th>
-                <th style="padding:5px;text-align:center;font-size:10px;color:#6b7280;border-bottom:1px solid #e5e7eb;border-right:1px solid #e5e7eb">T°</th>
+                <th style="padding:5px;text-align:center;font-size:10px;color:#6b7280;border-bottom:1px solid #e5e7eb">T°</th>
                 <th style="padding:5px;text-align:center;font-size:10px;color:#6b7280;border-bottom:1px solid #e5e7eb">O₂</th>
                 <th style="padding:5px;text-align:center;font-size:10px;color:#6b7280;border-bottom:1px solid #e5e7eb">T°</th>
               </tr>
             </thead><tbody>{filas}</tbody></table></div>"""
 
-    # Tabla de normales simplificada
     def tabla_normales(piscinas):
         if not piscinas: return ""
         filas = ""
@@ -862,11 +721,9 @@ def construir_html_gerencia_consolidado(fecha):
     campos_info = []
     total_criticos = 0
     total_vigilancia = 0
-
     for campo in CAMPOS:
         piscinas_data = get_resumen_campo(campo, dias=4)
         if not piscinas_data: continue
-
         if campo == FIMASA3:
             alertas  = [p for p in piscinas_data if tiene_alerta_fimasa3(p["ultimo"])]
             criticos = [p for p in alertas if tiene_critico_fimasa3(p["ultimo"])]
@@ -877,18 +734,14 @@ def construir_html_gerencia_consolidado(fecha):
             criticos = [p for p in alertas if
                         (p["ultimo"].get("oxigeno_am") is not None and p["ultimo"]["oxigeno_am"] < O2_CRITICO) or
                         (p["ultimo"].get("oxigeno_pm") is not None and p["ultimo"]["oxigeno_pm"] < O2_CRITICO)]
-
         if alertas:
             campos_info.append({"campo":campo,"piscinas":piscinas_data,"alertas":alertas,"criticos":criticos})
             total_criticos  += len(criticos)
             total_vigilancia+= len(alertas)-len(criticos)
-
     if not campos_info: return None, None, None
-
     nivel_color = "#dc2626" if total_criticos > 0 else "#d97706"
     nivel_texto = "🔴 ALERTA CRÍTICA" if total_criticos > 0 else "🟡 VIGILANCIA"
     asunto = f"{nivel_texto} — Reporte Consolidado — {fecha}"
-
     secciones = ""
     for info in campos_info:
         o2am_v = [p["ultimo"]["oxigeno_am"] for p in info["piscinas"] if p["ultimo"].get("oxigeno_am") is not None]
@@ -901,7 +754,6 @@ def construir_html_gerencia_consolidado(fecha):
 
         filas = ""
         if campo == FIMASA3:
-            # Tabla especial Fimasa 3 con 4 mediciones
             for p in sort_ps(info["piscinas"]):
                 u = p["ultimo"]
                 if not u: continue
@@ -970,7 +822,6 @@ def construir_html_gerencia_consolidado(fecha):
       </div>
       <div style="background:#f9fafb;padding:10px;text-align:center;font-size:11px;color:#9ca3af;border-radius:0 0 12px 12px;border:1px solid #e5e7eb;border-top:none">Sistema de Alertas Camaronera Recorcholis S.A.</div>
     </div>"""
-
     cuerpo = f"{nivel_texto} — {fecha}\nCampos con alertas: {len(campos_info)} | Críticas: {total_criticos} | Vigilancia: {total_vigilancia}"
     return asunto, cuerpo, html
 
