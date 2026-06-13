@@ -44,11 +44,6 @@ h1{font-size:21px;font-weight:700;color:#0F6E56;margin-bottom:4px;text-align:cen
 .estado p{font-size:13px;color:#6b7280}
 .spinner{width:34px;height:34px;border:3px solid #bfdbfe;border-top-color:#1D9E75;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 8px}
 @keyframes spin{to{transform:rotate(360deg)}}
-.upload-zone{border:2px dashed #9FE1CB;border-radius:14px;padding:28px 16px;text-align:center;cursor:pointer;background:#f0fdf8;transition:all .2s;margin-bottom:14px}
-.upload-zone:hover{background:#e1f5ee;border-color:#1D9E75}
-.upload-zone p{font-size:15px;font-weight:600;color:#374151;margin-top:6px}
-.upload-zone small{font-size:12px;color:#9ca3af}
-#fileInput{display:none}
 .preview{display:none;margin-bottom:14px;text-align:center}
 .preview img{max-width:100%;max-height:260px;border-radius:12px;border:2px solid #9FE1CB;object-fit:contain}
 .res-badge{padding:4px 10px;border-radius:8px;font-size:12px;font-weight:600}
@@ -65,11 +60,9 @@ td{padding:8px;border-bottom:1px solid #f3f4f6;color:#111}
 .campo-sel-btn{padding:10px;border-radius:12px;border:1.5px solid #e5e7eb;background:white;font-size:13px;cursor:pointer;text-align:center;transition:all .15s;color:#374151}
 .campo-sel-btn.active{background:#0F6E56;color:white;border-color:#0F6E56}
 .back-btn{font-size:13px;color:#0F6E56;border:none;background:transparent;cursor:pointer;margin-bottom:12px;display:flex;align-items:center;gap:4px;padding:0}
-/* TABS */
 .tab-row{display:flex;gap:8px;margin-bottom:16px}
 .tab-btn{flex:1;padding:10px;border-radius:12px;border:1.5px solid #e5e7eb;background:white;font-size:13px;font-weight:600;cursor:pointer;text-align:center;transition:all .15s;color:#374151}
 .tab-btn.active{background:#0F6E56;color:white;border-color:#0F6E56}
-/* DASHBOARD GERENCIA */
 .campo-card{background:#f9fafb;border-radius:14px;padding:14px;margin-bottom:10px;cursor:pointer;transition:all .2s;border:1.5px solid #e5e7eb}
 .campo-card:hover{border-color:#1D9E75;background:#f0fdf8}
 .campo-card.critico{border-color:#fca5a5;background:#fef2f2}
@@ -81,15 +74,12 @@ td{padding:8px;border-bottom:1px solid #f3f4f6;color:#111}
 .campo-stats{display:flex;gap:8px;flex-wrap:wrap}
 .stat-pill{padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600}
 .campo-prom{font-size:12px;color:#6b7280;margin-top:6px}
-/* TABLA DÍAS ANTERIORES */
 .hist-mini{font-size:11px;color:#6b7280;margin-top:4px}
 .hist-mini span{margin-right:8px}
-
 .campo-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
 .campo-hist-btn{padding:12px;border-radius:12px;border:1.5px solid #e5e7eb;background:white;font-size:13px;font-weight:600;cursor:pointer;text-align:center;transition:all .15s;color:#374151}
 .campo-hist-btn:hover{border-color:#1D9E75;background:#f0fdf8}
 .campo-hist-btn.active{background:#0F6E56;color:white;border-color:#0F6E56}
-/* TABLA RESUMEN PISCINAS */
 .ps-row{cursor:pointer;transition:background .15s}
 .ps-row:hover{background:#f0fdf8}
 .ps-row td{padding:10px 8px}
@@ -98,7 +88,6 @@ td{padding:8px;border-bottom:1px solid #f3f4f6;color:#111}
 .dot-c{background:#ef4444}
 .dot-v{background:#f59e0b}
 .dot-n{background:#22c55e}
-/* DETALLE PISCINA */
 .periodo-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
 .periodo-btn{padding:8px 12px;border-radius:10px;border:1.5px solid #e5e7eb;background:white;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;color:#374151}
 .periodo-btn.active{background:#0F6E56;color:white;border-color:#0F6E56}
@@ -112,6 +101,12 @@ td{padding:8px;border-bottom:1px solid #f3f4f6;color:#111}
 .metric-card.alerta-c .metric-val{color:#ef4444}
 .metric-card.alerta-v{background:#fffbeb}
 .metric-card.alerta-v .metric-val{color:#f59e0b}
+/* BOTONES FUENTE FOTO */
+.foto-source-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.foto-source-btn{padding:22px 8px;border-radius:16px;border:2px solid #e5e7eb;background:white;cursor:pointer;text-align:center;transition:all .2s;display:flex;flex-direction:column;align-items:center;gap:8px}
+.foto-source-btn:hover{border-color:#1D9E75;background:#f0fdf8}
+.foto-source-icon{font-size:32px}
+.foto-source-label{font-size:13px;font-weight:600;color:#374151}
 </style>
 </head>
 <body>
@@ -142,17 +137,10 @@ td{padding:8px;border-bottom:1px solid #f3f4f6;color:#111}
       <button class="tab-btn" id="g-tab-hist" onclick="switchTabG('hist')">📈 Histórico</button>
       <button class="tab-btn" id="g-tab-reg" onclick="switchTabG('reg')">👤 Registrarme</button>
     </div>
-    <!-- DASHBOARD -->
     <div id="g-panel-dash">
-      <div id="g-dashboard-wrap">
-        <div class="spinner" style="margin:30px auto"></div>
-      </div>
+      <div id="g-dashboard-wrap"><div class="spinner" style="margin:30px auto"></div></div>
     </div>
-    <!-- HISTÓRICO -->
-    <div id="g-panel-hist" style="display:none">
-      <div id="hist-wrap-g"></div>
-    </div>
-    <!-- REGISTRO -->
+    <div id="g-panel-hist" style="display:none"><div id="hist-wrap-g"></div></div>
     <div id="g-panel-reg" style="display:none">
       <p style="font-size:13px;color:#6b7280;margin-bottom:16px">Recibirás alertas de <strong>todos los campos</strong>.</p>
       <div class="field"><label>Nombre completo</label><input id="g-nombre" type="text" placeholder="Ej: Carlos Mendoza"></div>
@@ -181,9 +169,7 @@ td{padding:8px;border-bottom:1px solid #f3f4f6;color:#111}
       <div id="b-estado"></div>
       <button class="btn btn-green" onclick="registrarBiologo()">✅ Guardar mi perfil</button>
     </div>
-    <div id="b-panel-hist" style="display:none">
-      <div id="hist-wrap-b"></div>
-    </div>
+    <div id="b-panel-hist" style="display:none"><div id="hist-wrap-b"></div></div>
   </div>
 </div>
 
@@ -204,10 +190,24 @@ td{padding:8px;border-bottom:1px solid #f3f4f6;color:#111}
     <button class="back-btn" onclick="irA('v-parametrista')">← Cambiar campo</button>
     <h2>📷 Subir parámetros</h2>
     <p style="font-size:13px;color:#1D9E75;font-weight:600;margin-bottom:14px" id="campo-actual-label"></p>
-    <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()" ondragover="event.preventDefault()" ondrop="handleDrop(event)">
-      <div style="font-size:40px">📸</div><p>Toca para subir la foto</p><small>Foto del block de parámetros diarios</small>
+
+    <!-- Selector de fuente -->
+    <div class="foto-source-grid" id="foto-source-grid">
+      <div class="foto-source-btn" onclick="document.getElementById('fileInputCamera').click()">
+        <div class="foto-source-icon">📷</div>
+        <div class="foto-source-label">Tomar foto</div>
+      </div>
+      <div class="foto-source-btn" onclick="document.getElementById('fileInputGallery').click()">
+        <div class="foto-source-icon">🖼️</div>
+        <div class="foto-source-label">Elegir de galería</div>
+      </div>
     </div>
-    <input type="file" id="fileInput" accept="image/*" capture="environment" onchange="handleFile(this.files[0])">
+
+    <!-- Input cámara (fuerza cámara) -->
+    <input type="file" id="fileInputCamera" accept="image/*" capture="environment" onchange="handleFile(this.files[0])" style="display:none">
+    <!-- Input galería (sin capture, abre galería) -->
+    <input type="file" id="fileInputGallery" accept="image/*" onchange="handleFile(this.files[0])" style="display:none">
+
     <div class="preview" id="previewWrap"><img id="previewImg" src="" alt="preview"></div>
     <div id="foto-estado"></div>
     <button class="btn btn-green" id="btnEnviar" onclick="enviarFoto()" disabled>📤 Procesar y enviar alertas</button>
@@ -264,9 +264,8 @@ let detallePeriodo = 7;
 let detalleCorrida = null;
 let todasCorridas = [];
 let charts = {};
-let histOrigen = null; // 'g' o 'b'
+let histOrigen = null;
 
-// ── Navegación ──────────────────────────────────────────────
 function irA(vid) {
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.getElementById(vid).classList.add('active');
@@ -282,7 +281,6 @@ function irAFoto(){
   irA('v-foto');
 }
 
-// ── Tabs gerencia ──────────────────────────────────────────
 function switchTabG(tab) {
   ['dash','hist','reg'].forEach(t => {
     document.getElementById(`g-panel-${t}`).style.display = t===tab ? 'block' : 'none';
@@ -332,13 +330,11 @@ function renderDashboard(resumen, fecha) {
     const cls = c.criticos > 0 ? 'critico' : c.alertas > 0 ? 'vigilancia' : 'normal';
     const icon = c.criticos > 0 ? '🔴' : c.alertas > 0 ? '🟡' : '🟢';
     const sinDatos = !c.ultima_fecha;
-
     html += `<div class="campo-card ${sinDatos?'':''+cls}" onclick="verResumenCampoDesdeGerencia('${c.campo}')">
       <div class="campo-card-header">
         <span class="campo-card-nombre">${icon} ${c.campo}</span>
         <span class="campo-card-fecha">${c.ultima_fecha || 'Sin datos'}</span>
       </div>`;
-
     if (!sinDatos) {
       html += `<div class="campo-stats">
         <span class="stat-pill rc">${c.criticos} crítico</span>
@@ -346,8 +342,6 @@ function renderDashboard(resumen, fecha) {
         <span class="stat-pill rg">${c.total - c.alertas} normal</span>
       </div>
       <div class="campo-prom">O₂ AM promedio: <strong>${c.prom_o2_am ?? '—'} mg/L</strong></div>`;
-
-      // Mostrar piscinas con alerta
       const pisAlertas = c.piscinas.filter(p =>
         (p.ultimo?.oxigeno_am != null && p.ultimo.oxigeno_am < 3.5) ||
         (p.ultimo?.oxigeno_pm != null && p.ultimo.oxigeno_pm < 3.5)
@@ -357,7 +351,6 @@ function renderDashboard(resumen, fecha) {
         pisAlertas.forEach(p => {
           const o2am = p.ultimo?.oxigeno_am;
           const e = o2am != null && o2am < 2.9 ? '🔴' : '🟡';
-          // Historial 3 días anteriores
           const hist = p.historial.slice(0,-1).map(h => `${h.fecha}: ${h.oxigeno_am??'—'}`).join(' | ');
           html += `<div style="padding:4px 0;border-bottom:1px solid #f3f4f6">
             ${e} <strong>Ps ${p.piscina}</strong>: O₂AM=${o2am??'—'} O₂PM=${p.ultimo?.oxigeno_pm??'—'}
@@ -371,7 +364,6 @@ function renderDashboard(resumen, fecha) {
     }
     html += `</div>`;
   });
-
   wrap.innerHTML = html;
 }
 
@@ -380,19 +372,14 @@ function verResumenCampoDesdeGerencia(sector) {
   verResumenCampo(sector);
 }
 
-// ── Tabs biólogo ────────────────────────────────────────────
 function switchTab(prefix, tab) {
   document.getElementById(`${prefix}-panel-reg`).style.display = tab==='reg'?'block':'none';
   document.getElementById(`${prefix}-panel-hist`).style.display = tab==='hist'?'block':'none';
   document.getElementById(`${prefix}-tab-reg`).classList.toggle('active', tab==='reg');
   document.getElementById(`${prefix}-tab-hist`).classList.toggle('active', tab==='hist');
-  if (tab==='hist') {
-    histOrigen = prefix;
-    renderSelectorCampos(`hist-wrap-${prefix}`);
-  }
+  if (tab==='hist') { histOrigen = prefix; renderSelectorCampos(`hist-wrap-${prefix}`); }
 }
 
-// ── HISTÓRICO: Selector de campos ──────────────────────────
 function renderSelectorCampos(containerId) {
   const wrap = document.getElementById(containerId);
   wrap.innerHTML = `
@@ -403,59 +390,37 @@ function renderSelectorCampos(containerId) {
   `;
 }
 
-// ── HISTÓRICO: Resumen de campo ─────────────────────────────
 async function verResumenCampo(sector) {
   detalleSector = sector;
-
-  // Configura botón volver
   document.getElementById('back-resumen').onclick = () => {
     irA(histOrigen==='g'?'v-gerencia':'v-biologo');
-    if(histOrigen==='g') switchTab('g','hist');
+    if(histOrigen==='g') switchTabG('hist');
     else switchTab('b','hist');
   };
-
   document.getElementById('resumen-titulo').textContent = '📍 ' + sector;
   document.getElementById('resumen-tabla').innerHTML = '<div class="spinner" style="margin:20px auto"></div>';
   irA('v-resumen');
-
-  // Obtener lista de piscinas
   const rp = await fetch(`/api/piscinas?sector=${encodeURIComponent(sector)}`);
   const dp = await rp.json();
-
   if (!dp.piscinas || !dp.piscinas.length) {
     document.getElementById('resumen-tabla').innerHTML = '<p style="text-align:center;color:#6b7280;padding:20px">Sin datos registrados aún para este campo.<br><small>Sube una foto primero.</small></p>';
     return;
   }
-
-  // Obtener último dato de cada piscina
   const promesas = dp.piscinas.map(ps =>
     fetch(`/api/historico?sector=${encodeURIComponent(sector)}&piscina=${encodeURIComponent(ps)}&dias=1`)
       .then(r=>r.json()).then(d=>({ps, dato: d.datos && d.datos.length ? d.datos[d.datos.length-1] : null}))
   );
   const resultados = await Promise.all(promesas);
-  // Ordenar numéricamente
   resultados.sort((a,b) => { const na=parseInt(a.ps), nb=parseInt(b.ps); return isNaN(na)||isNaN(nb) ? a.ps.localeCompare(b.ps) : na-nb; });
-
-  // Fecha del último reporte
   const fechas = resultados.filter(r=>r.dato).map(r=>r.dato.fecha);
   const ultimaFecha = fechas.length ? fechas[fechas.length-1] : '';
   document.getElementById('resumen-fecha').textContent = ultimaFecha ? `Última lectura: ${ultimaFecha}` : '';
-
-  // Tabla resumen
-  let html = `<div style="overflow-x:auto"><table>
-    <thead><tr>
-      <th>Piscina</th>
-      <th>O₂ AM</th><th>O₂ PM</th>
-      <th>T AM</th><th>T PM</th>
-      <th>Estado</th>
-    </tr></thead><tbody>`;
-
+  let html = `<div style="overflow-x:auto"><table><thead><tr>
+    <th>Piscina</th><th>O₂ AM</th><th>O₂ PM</th><th>T AM</th><th>T PM</th><th>Estado</th>
+  </tr></thead><tbody>`;
   resultados.forEach(({ps, dato}) => {
     if (!dato) {
-      html += `<tr class="ps-row" onclick="verDetallePiscina('${ps}')">
-        <td class="ps-nombre">${ps}</td>
-        <td colspan="5" style="color:#9ca3af;font-size:12px">Sin datos</td>
-      </tr>`;
+      html += `<tr class="ps-row" onclick="verDetallePiscina('${ps}')"><td class="ps-nombre">${ps}</td><td colspan="5" style="color:#9ca3af;font-size:12px">Sin datos</td></tr>`;
       return;
     }
     const eAM = estO2(dato.oxigeno_am), ePM = estO2(dato.oxigeno_pm);
@@ -465,36 +430,26 @@ async function verResumenCampo(sector) {
     const bcCls = {c:'bc rc',v:'bc ry',n:'bc rg'}[worst];
     html += `<tr class="ps-row" onclick="verDetallePiscina('${ps}')">
       <td><span class="alerta-dot ${dotCls}"></span><span class="ps-nombre">${ps}</span></td>
-      <td>${dato.oxigeno_am??'—'}</td>
-      <td>${dato.oxigeno_pm??'—'}</td>
-      <td>${dato.temp_am??'—'}</td>
-      <td>${dato.temp_pm??'—'}</td>
+      <td>${dato.oxigeno_am??'—'}</td><td>${dato.oxigeno_pm??'—'}</td>
+      <td>${dato.temp_am??'—'}</td><td>${dato.temp_pm??'—'}</td>
       <td><span class="${bcCls}">${lbl}</span></td>
     </tr>`;
   });
-
-  html += '</tbody></table></div>';
-  html += '<p style="font-size:11px;color:#9ca3af;text-align:center;margin-top:10px">Toca una piscina para ver su historial detallado →</p>';
+  html += '</tbody></table></div><p style="font-size:11px;color:#9ca3af;text-align:center;margin-top:10px">Toca una piscina para ver su historial detallado →</p>';
   document.getElementById('resumen-tabla').innerHTML = html;
 }
 
-// ── HISTÓRICO: Detalle de piscina ───────────────────────────
 async function verDetallePiscina(piscina) {
   detallePiscina = piscina;
   detallePeriodo = 99999;
   detalleCorrida = null;
-
   document.getElementById('back-detalle').onclick = () => verResumenCampo(detalleSector);
   document.getElementById('detalle-titulo').textContent = `📊 ${detalleSector} — ${piscina}`;
   document.querySelectorAll('.periodo-btn').forEach((b,i)=>b.classList.toggle('active',i===0));
-
   irA('v-detalle');
-
-  // Cargar corridas disponibles
   const rc = await fetch(`/api/corridas?sector=${encodeURIComponent(detalleSector)}&piscina=${encodeURIComponent(piscina)}`);
   const dc = await rc.json();
   todasCorridas = dc.corridas || [];
-
   renderCorridaSelector();
   await cargarDetalle();
 }
@@ -502,10 +457,8 @@ async function verDetallePiscina(piscina) {
 function renderCorridaSelector() {
   const wrap = document.getElementById('corrida-selector');
   if (!todasCorridas.length) { wrap.innerHTML = ''; return; }
-
-  const actual = todasCorridas[0]; // más reciente
+  const actual = todasCorridas[0];
   const hayAnteriores = todasCorridas.length > 1;
-
   let html = `<div style="background:#f0fdf8;border:1.5px solid #9FE1CB;border-radius:12px;padding:12px;margin-bottom:4px">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
       <div>
@@ -513,14 +466,12 @@ function renderCorridaSelector() {
         <div style="font-size:14px;font-weight:700;color:#0F6E56">Corrida ${actual.corrida} — ${actual.dias} días registrados</div>
         <div style="font-size:11px;color:#6b7280">${actual.inicio} → ${actual.fin}</div>
       </div>`;
-
   if (hayAnteriores) {
     html += `<select onchange="cambiarCorrida(this.value)" style="padding:8px 10px;border-radius:10px;border:1.5px solid #0F6E56;font-size:13px;color:#0F6E56;font-weight:600;background:white;cursor:pointer">
       <option value="">Ver corrida anterior...</option>
       ${todasCorridas.slice(1).map(c=>`<option value="${c.corrida}">Corrida ${c.corrida} (${c.inicio} → ${c.fin})</option>`).join('')}
     </select>`;
   }
-
   html += `</div></div>`;
   wrap.innerHTML = html;
 }
@@ -528,10 +479,8 @@ function renderCorridaSelector() {
 async function cambiarCorrida(corrida) {
   if (!corrida) return;
   detalleCorrida = corrida;
-  // Actualizar título
   const c = todasCorridas.find(x=>x.corrida==corrida);
   document.getElementById('detalle-titulo').textContent = `📊 ${detalleSector} — ${detallePiscina} (Corrida ${corrida})`;
-  // Actualizar selector
   const wrap = document.getElementById('corrida-selector');
   wrap.innerHTML = `<div style="background:#fffbeb;border:1.5px solid #f59e0b;border-radius:12px;padding:12px;margin-bottom:4px">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
@@ -558,56 +507,30 @@ async function cargarDetalle() {
   const corridaParam = detalleCorrida ? `&corrida=${detalleCorrida}` : '';
   document.getElementById('detalle-metrics').innerHTML = '<div class="spinner" style="margin:10px auto;grid-column:span 2"></div>';
   document.getElementById('detalle-charts').innerHTML = '';
-
   const r = await fetch(`/api/historico?sector=${encodeURIComponent(sector)}&piscina=${encodeURIComponent(piscina)}&dias=${dias}${corridaParam}`);
   const d = await r.json();
-
   if (!d.datos || !d.datos.length) {
     document.getElementById('detalle-metrics').innerHTML = '';
     document.getElementById('detalle-charts').innerHTML = '<p style="text-align:center;color:#6b7280;padding:20px">Sin datos para este período</p>';
     return;
   }
-
-  // Último dato para métricas
   const ultimo = d.datos[d.datos.length-1];
   const eAM = estO2(ultimo.oxigeno_am), ePM = estO2(ultimo.oxigeno_pm);
-
   document.getElementById('detalle-metrics').innerHTML = `
-    <div class="metric-card alerta-${eAM}">
-      <div class="metric-val">${ultimo.oxigeno_am??'—'}</div>
-      <div class="metric-lbl">O₂ AM (mg/L)</div>
-    </div>
-    <div class="metric-card alerta-${ePM}">
-      <div class="metric-val">${ultimo.oxigeno_pm??'—'}</div>
-      <div class="metric-lbl">O₂ PM (mg/L)</div>
-    </div>
-    <div class="metric-card">
-      <div class="metric-val" style="color:#f59e0b">${ultimo.temp_am??'—'}</div>
-      <div class="metric-lbl">Temp AM (°C)</div>
-    </div>
-    <div class="metric-card">
-      <div class="metric-val" style="color:#ef4444">${ultimo.temp_pm??'—'}</div>
-      <div class="metric-lbl">Temp PM (°C)</div>
-    </div>
+    <div class="metric-card alerta-${eAM}"><div class="metric-val">${ultimo.oxigeno_am??'—'}</div><div class="metric-lbl">O₂ AM (mg/L)</div></div>
+    <div class="metric-card alerta-${ePM}"><div class="metric-val">${ultimo.oxigeno_pm??'—'}</div><div class="metric-lbl">O₂ PM (mg/L)</div></div>
+    <div class="metric-card"><div class="metric-val" style="color:#f59e0b">${ultimo.temp_am??'—'}</div><div class="metric-lbl">Temp AM (°C)</div></div>
+    <div class="metric-card"><div class="metric-val" style="color:#ef4444">${ultimo.temp_pm??'—'}</div><div class="metric-lbl">Temp PM (°C)</div></div>
   `;
-
   const labels = d.datos.map(x=>x.fecha);
-
-  // Destruir charts anteriores
   Object.values(charts).forEach(c=>c.destroy());
   charts = {};
-
   document.getElementById('detalle-charts').innerHTML = `
     <div class="chart-wrap"><div class="chart-titulo">🌅 Mañana — O₂ AM y Temperatura AM</div><canvas id="ch-am"></canvas></div>
     <div class="chart-wrap"><div class="chart-titulo">🌆 Tarde — O₂ PM y Temperatura PM</div><canvas id="ch-pm"></canvas></div>
   `;
-
-  charts.am = crearChartDoble('ch-am', labels,
-    d.datos.map(x=>x.oxigeno_am), 'O₂ AM (mg/L)', '#1D9E75',
-    d.datos.map(x=>x.temp_am),    'Temp AM (°C)',  '#f59e0b', true);
-  charts.pm = crearChartDoble('ch-pm', labels,
-    d.datos.map(x=>x.oxigeno_pm), 'O₂ PM (mg/L)', '#0F6E56',
-    d.datos.map(x=>x.temp_pm),    'Temp PM (°C)',  '#ef4444', true);
+  charts.am = crearChartDoble('ch-am', labels, d.datos.map(x=>x.oxigeno_am), 'O₂ AM (mg/L)', '#1D9E75', d.datos.map(x=>x.temp_am), 'Temp AM (°C)', '#f59e0b', true);
+  charts.pm = crearChartDoble('ch-pm', labels, d.datos.map(x=>x.oxigeno_pm), 'O₂ PM (mg/L)', '#0F6E56', d.datos.map(x=>x.temp_pm), 'Temp PM (°C)', '#ef4444', true);
 }
 
 function setPeriodo(dias, btn) {
@@ -620,19 +543,8 @@ function setPeriodo(dias, btn) {
 function crearChartDoble(canvasId, labels, datos1, label1, color1, datos2, label2, color2, conLineas) {
   const ctx = document.getElementById(canvasId).getContext('2d');
   const datasets = [
-    {
-      label: label1, data: datos1, yAxisID: 'y',
-      borderColor: color1, backgroundColor: color1+'22',
-      borderWidth: 2, pointRadius: 3, pointBackgroundColor: color1,
-      tension: 0.3, fill: true, spanGaps: true
-    },
-    {
-      label: label2, data: datos2, yAxisID: 'y2',
-      borderColor: color2, backgroundColor: 'transparent',
-      borderWidth: 2, pointRadius: 3, pointBackgroundColor: color2,
-      borderDash: [4,2],
-      tension: 0.3, fill: false, spanGaps: true
-    }
+    {label:label1,data:datos1,yAxisID:'y',borderColor:color1,backgroundColor:color1+'22',borderWidth:2,pointRadius:3,pointBackgroundColor:color1,tension:0.3,fill:true,spanGaps:true},
+    {label:label2,data:datos2,yAxisID:'y2',borderColor:color2,backgroundColor:'transparent',borderWidth:2,pointRadius:3,pointBackgroundColor:color2,borderDash:[4,2],tension:0.3,fill:false,spanGaps:true}
   ];
   if (conLineas) {
     datasets.push({label:'Crítico O₂',data:datos1.map(()=>2.9),yAxisID:'y',borderColor:'#ef444466',borderWidth:1.5,borderDash:[5,3],pointRadius:0,fill:false});
@@ -640,45 +552,13 @@ function crearChartDoble(canvasId, labels, datos1, label1, color1, datos2, label
   }
   return new Chart(ctx, {
     type:'line', data:{labels, datasets},
-    options:{
-      responsive:true,
-      interaction:{mode:'index',intersect:false},
-      plugins:{legend:{display:true,labels:{font:{size:10},boxWidth:16}}},
-      scales:{
-        y:{position:'left',grid:{color:'#f0f0f0'},ticks:{font:{size:11}},title:{display:true,text:'mg/L',font:{size:10}}},
+    options:{responsive:true,interaction:{mode:'index',intersect:false},plugins:{legend:{display:true,labels:{font:{size:10},boxWidth:16}}},
+      scales:{y:{position:'left',grid:{color:'#f0f0f0'},ticks:{font:{size:11}},title:{display:true,text:'mg/L',font:{size:10}}},
         y2:{position:'right',grid:{drawOnChartArea:false},ticks:{font:{size:11}},title:{display:true,text:'°C',font:{size:10}}},
-        x:{grid:{display:false},ticks:{font:{size:10},maxRotation:45,maxTicksLimit:10}}
-      }
-    }
+        x:{grid:{display:false},ticks:{font:{size:10},maxRotation:45,maxTicksLimit:10}}}}
   });
 }
 
-function crearChart(canvasId, labels, datos, label, color, conLineas) {
-  const ctx = document.getElementById(canvasId).getContext('2d');
-  const datasets = [{
-    label, data: datos,
-    borderColor: color, backgroundColor: color+'22',
-    borderWidth: 2, pointRadius: 3, pointBackgroundColor: color,
-    tension: 0.3, fill: true, spanGaps: true
-  }];
-  if (conLineas) {
-    datasets.push({label:'Crítico',data:datos.map(()=>3.0),borderColor:'#ef444466',borderWidth:1.5,borderDash:[5,3],pointRadius:0,fill:false});
-    datasets.push({label:'Vigilancia',data:datos.map(()=>3.5),borderColor:'#f59e0b66',borderWidth:1.5,borderDash:[5,3],pointRadius:0,fill:false});
-  }
-  return new Chart(ctx, {
-    type:'line', data:{labels, datasets},
-    options:{
-      responsive:true,
-      plugins:{legend:{display:conLineas,labels:{font:{size:10},boxWidth:20}}},
-      scales:{
-        y:{grid:{color:'#f0f0f0'},ticks:{font:{size:11}}},
-        x:{grid:{display:false},ticks:{font:{size:10},maxRotation:45,maxTicksLimit:10}}
-      }
-    }
-  });
-}
-
-// ── Campos biólogo ──────────────────────────────────────────
 function renderCamposBiologo(){
   const wrap=document.getElementById('b-campos');
   wrap.innerHTML='';
@@ -701,7 +581,6 @@ function renderCamposBiologo(){
   });
 }
 
-// ── Campos parametrista ─────────────────────────────────────
 function renderCamposSel(){
   const grid=document.getElementById('campo-sel-grid');
   grid.innerHTML='';
@@ -719,7 +598,6 @@ function renderCamposSel(){
   });
 }
 
-// ── Registro ────────────────────────────────────────────────
 async function registrarGerencia(){
   const nombre=document.getElementById('g-nombre').value.trim();
   const email=document.getElementById('g-email').value.trim();
@@ -749,15 +627,16 @@ async function registrarBiologo(){
   }catch(e){mostrarEstado('b-estado','err','Error de conexión');}
 }
 
-// ── Foto ────────────────────────────────────────────────────
 function handleDrop(e){e.preventDefault();const f=e.dataTransfer.files[0];if(f&&f.type.startsWith('image/'))handleFile(f);}
+
 function handleFile(file){
-  if(!file)return;archivoFoto=file;
+  if(!file)return;
+  archivoFoto=file;
   const r=new FileReader();
   r.onload=e=>{
     document.getElementById('previewImg').src=e.target.result;
     document.getElementById('previewWrap').style.display='block';
-    document.getElementById('uploadZone').style.display='none';
+    document.getElementById('foto-source-grid').style.display='none';
     document.getElementById('btnEnviar').disabled=false;
     document.getElementById('foto-estado').innerHTML='';
   };
@@ -805,11 +684,12 @@ function estO2(v){if(v===null||v===undefined)return 'n';return v<2.9?'c':v<3.5?'
 function resetFoto(){
   archivoFoto=null;
   document.getElementById('previewWrap').style.display='none';
-  document.getElementById('uploadZone').style.display='block';
+  document.getElementById('foto-source-grid').style.display='grid';
   document.getElementById('btnEnviar').style.display='flex';
   document.getElementById('btnEnviar').disabled=true;
   document.getElementById('btnNueva').style.display='none';
-  document.getElementById('fileInput').value='';
+  document.getElementById('fileInputCamera').value='';
+  document.getElementById('fileInputGallery').value='';
   document.getElementById('foto-estado').innerHTML='';
 }
 
