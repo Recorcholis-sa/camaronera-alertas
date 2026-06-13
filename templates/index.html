@@ -101,7 +101,6 @@ td{padding:8px;border-bottom:1px solid #f3f4f6;color:#111}
 .metric-card.alerta-c .metric-val{color:#ef4444}
 .metric-card.alerta-v{background:#fffbeb}
 .metric-card.alerta-v .metric-val{color:#f59e0b}
-/* BOTONES FUENTE FOTO */
 .foto-source-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
 .foto-source-btn{padding:22px 8px;border-radius:16px;border:2px solid #e5e7eb;background:white;cursor:pointer;text-align:center;transition:all .2s;display:flex;flex-direction:column;align-items:center;gap:8px}
 .foto-source-btn:hover{border-color:#1D9E75;background:#f0fdf8}
@@ -190,8 +189,6 @@ td{padding:8px;border-bottom:1px solid #f3f4f6;color:#111}
     <button class="back-btn" onclick="irA('v-parametrista')">← Cambiar campo</button>
     <h2>📷 Subir parámetros</h2>
     <p style="font-size:13px;color:#1D9E75;font-weight:600;margin-bottom:14px" id="campo-actual-label"></p>
-
-    <!-- Selector de fuente -->
     <div class="foto-source-grid" id="foto-source-grid">
       <div class="foto-source-btn" onclick="document.getElementById('fileInputCamera').click()">
         <div class="foto-source-icon">📷</div>
@@ -202,12 +199,8 @@ td{padding:8px;border-bottom:1px solid #f3f4f6;color:#111}
         <div class="foto-source-label">Elegir de galería</div>
       </div>
     </div>
-
-    <!-- Input cámara (fuerza cámara) -->
     <input type="file" id="fileInputCamera" accept="image/*" capture="environment" onchange="handleFile(this.files[0])" style="display:none">
-    <!-- Input galería (sin capture, abre galería) -->
     <input type="file" id="fileInputGallery" accept="image/*" onchange="handleFile(this.files[0])" style="display:none">
-
     <div class="preview" id="previewWrap"><img id="previewImg" src="" alt="preview"></div>
     <div id="foto-estado"></div>
     <button class="btn btn-green" id="btnEnviar" onclick="enviarFoto()" disabled>📤 Procesar y enviar alertas</button>
@@ -217,7 +210,7 @@ td{padding:8px;border-bottom:1px solid #f3f4f6;color:#111}
 
 <!-- VIEW 6: RESUMEN CAMPO -->
 <div class="view" id="v-resumen">
-  <div class="card" style="max-width:480px">
+  <div class="card" style="max-width:520px">
     <button class="back-btn" id="back-resumen" onclick="">← Volver</button>
     <h2 id="resumen-titulo">📍 Campo</h2>
     <p style="font-size:12px;color:#6b7280;margin-bottom:14px" id="resumen-fecha"></p>
@@ -227,7 +220,7 @@ td{padding:8px;border-bottom:1px solid #f3f4f6;color:#111}
 
 <!-- VIEW 7: DETALLE PISCINA -->
 <div class="view" id="v-detalle">
-  <div class="card" style="max-width:480px">
+  <div class="card" style="max-width:520px">
     <button class="back-btn" id="back-detalle" onclick="">← Volver al campo</button>
     <h2 id="detalle-titulo">Piscina</h2>
     <div id="corrida-selector" style="margin-bottom:12px"></div>
@@ -247,6 +240,7 @@ td{padding:8px;border-bottom:1px solid #f3f4f6;color:#111}
 
 <script>
 const CAMPOS = ["Rolesa 1","Rolesa 2","Pantrusko 1","Pantrusko 2","Caesa 1","Caesa 2","Fimasa 1","Fimasa 2","Fimasa 3","Recorcholis 1","Recorcholis 2"];
+const FIMASA3 = "Fimasa 3";
 const GRUPOS = [
   {nombre:"Rolesa",    campos:["Rolesa 1","Rolesa 2"]},
   {nombre:"Pantrusko", campos:["Pantrusko 1","Pantrusko 2"]},
@@ -336,28 +330,51 @@ function renderDashboard(resumen, fecha) {
         <span class="campo-card-fecha">${c.ultima_fecha || 'Sin datos'}</span>
       </div>`;
     if (!sinDatos) {
+      const promLabel = c.campo === FIMASA3 ? 'O₂ 05:00 promedio' : 'O₂ AM promedio';
       html += `<div class="campo-stats">
         <span class="stat-pill rc">${c.criticos} crítico</span>
         <span class="stat-pill ry">${c.alertas - c.criticos} vigilancia</span>
         <span class="stat-pill rg">${c.total - c.alertas} normal</span>
       </div>
-      <div class="campo-prom">O₂ AM promedio: <strong>${c.prom_o2_am ?? '—'} mg/L</strong></div>`;
-      const pisAlertas = c.piscinas.filter(p =>
-        (p.ultimo?.oxigeno_am != null && p.ultimo.oxigeno_am < 3.5) ||
-        (p.ultimo?.oxigeno_pm != null && p.ultimo.oxigeno_pm < 3.5)
-      );
-      if (pisAlertas.length) {
-        html += `<div style="margin-top:8px;font-size:12px">`;
-        pisAlertas.forEach(p => {
-          const o2am = p.ultimo?.oxigeno_am;
-          const e = o2am != null && o2am < 2.9 ? '🔴' : '🟡';
-          const hist = p.historial.slice(0,-1).map(h => `${h.fecha}: ${h.oxigeno_am??'—'}`).join(' | ');
-          html += `<div style="padding:4px 0;border-bottom:1px solid #f3f4f6">
-            ${e} <strong>Ps ${p.piscina}</strong>: O₂AM=${o2am??'—'} O₂PM=${p.ultimo?.oxigeno_pm??'—'}
-            ${hist ? `<div class="hist-mini">Ant: ${hist}</div>` : ''}
-          </div>`;
-        });
-        html += `</div>`;
+      <div class="campo-prom">${promLabel}: <strong>${c.prom_o2_am ?? '—'} mg/L</strong></div>`;
+
+      // Para Fimasa 3 mostrar alertas con las mediciones de madrugada
+      if (c.campo === FIMASA3) {
+        const pisAlertas = c.piscinas.filter(p =>
+          (p.ultimo?.oxigeno_00 != null && p.ultimo.oxigeno_00 < 3.5) ||
+          (p.ultimo?.oxigeno_02 != null && p.ultimo.oxigeno_02 < 3.5) ||
+          (p.ultimo?.oxigeno_am != null && p.ultimo.oxigeno_am < 3.5)
+        );
+        if (pisAlertas.length) {
+          html += `<div style="margin-top:8px;font-size:12px">`;
+          pisAlertas.forEach(p => {
+            const vals = [p.ultimo?.oxigeno_00, p.ultimo?.oxigeno_02, p.ultimo?.oxigeno_am].filter(v=>v!=null);
+            const minVal = vals.length ? Math.min(...vals) : null;
+            const e = minVal != null && minVal < 2.9 ? '🔴' : '🟡';
+            html += `<div style="padding:4px 0;border-bottom:1px solid #f3f4f6">
+              ${e} <strong>Ps ${p.piscina}</strong>: 00:30=${p.ultimo?.oxigeno_00??'—'} 02:30=${p.ultimo?.oxigeno_02??'—'} 05:00=${p.ultimo?.oxigeno_am??'—'}
+            </div>`;
+          });
+          html += `</div>`;
+        }
+      } else {
+        const pisAlertas = c.piscinas.filter(p =>
+          (p.ultimo?.oxigeno_am != null && p.ultimo.oxigeno_am < 3.5) ||
+          (p.ultimo?.oxigeno_pm != null && p.ultimo.oxigeno_pm < 3.5)
+        );
+        if (pisAlertas.length) {
+          html += `<div style="margin-top:8px;font-size:12px">`;
+          pisAlertas.forEach(p => {
+            const o2am = p.ultimo?.oxigeno_am;
+            const e = o2am != null && o2am < 2.9 ? '🔴' : '🟡';
+            const hist = p.historial.slice(0,-1).map(h => `${h.fecha}: ${h.oxigeno_am??'—'}`).join(' | ');
+            html += `<div style="padding:4px 0;border-bottom:1px solid #f3f4f6">
+              ${e} <strong>Ps ${p.piscina}</strong>: O₂AM=${o2am??'—'} O₂PM=${p.ultimo?.oxigeno_pm??'—'}
+              ${hist ? `<div class="hist-mini">Ant: ${hist}</div>` : ''}
+            </div>`;
+          });
+          html += `</div>`;
+        }
       }
     } else {
       html += `<div style="font-size:12px;color:#9ca3af">Sin reportes registrados</div>`;
@@ -392,6 +409,7 @@ function renderSelectorCampos(containerId) {
 
 async function verResumenCampo(sector) {
   detalleSector = sector;
+  const esFimasa3 = sector === FIMASA3;
   document.getElementById('back-resumen').onclick = () => {
     irA(histOrigen==='g'?'v-gerencia':'v-biologo');
     if(histOrigen==='g') switchTabG('hist');
@@ -415,28 +433,82 @@ async function verResumenCampo(sector) {
   const fechas = resultados.filter(r=>r.dato).map(r=>r.dato.fecha);
   const ultimaFecha = fechas.length ? fechas[fechas.length-1] : '';
   document.getElementById('resumen-fecha').textContent = ultimaFecha ? `Última lectura: ${ultimaFecha}` : '';
-  let html = `<div style="overflow-x:auto"><table><thead><tr>
-    <th>Piscina</th><th>O₂ AM</th><th>O₂ PM</th><th>T AM</th><th>T PM</th><th>Estado</th>
-  </tr></thead><tbody>`;
-  resultados.forEach(({ps, dato}) => {
-    if (!dato) {
-      html += `<tr class="ps-row" onclick="verDetallePiscina('${ps}')"><td class="ps-nombre">${ps}</td><td colspan="5" style="color:#9ca3af;font-size:12px">Sin datos</td></tr>`;
-      return;
-    }
-    const eAM = estO2(dato.oxigeno_am), ePM = estO2(dato.oxigeno_pm);
-    const worst = eAM==='c'||ePM==='c'?'c':eAM==='v'||ePM==='v'?'v':'n';
-    const dotCls = {c:'dot-c',v:'dot-v',n:'dot-n'}[worst];
-    const lbl = {c:'🔴 Crítico',v:'🟡 Vigilancia',n:'🟢 Normal'}[worst];
-    const bcCls = {c:'bc rc',v:'bc ry',n:'bc rg'}[worst];
-    html += `<tr class="ps-row" onclick="verDetallePiscina('${ps}')">
-      <td><span class="alerta-dot ${dotCls}"></span><span class="ps-nombre">${ps}</span></td>
-      <td>${dato.oxigeno_am??'—'}</td><td>${dato.oxigeno_pm??'—'}</td>
-      <td>${dato.temp_am??'—'}</td><td>${dato.temp_pm??'—'}</td>
-      <td><span class="${bcCls}">${lbl}</span></td>
-    </tr>`;
-  });
-  html += '</tbody></table></div><p style="font-size:11px;color:#9ca3af;text-align:center;margin-top:10px">Toca una piscina para ver su historial detallado →</p>';
+
+  let html = '';
+  if (esFimasa3) {
+    // Tabla especial Fimasa 3 con 4 mediciones
+    html = `<div style="overflow-x:auto"><table>
+      <thead>
+        <tr style="background:#e0f2fe">
+          <th rowspan="2" style="padding:8px;font-size:11px;color:#374151;border-bottom:1px solid #e5e7eb">PS</th>
+          <th colspan="2" style="padding:6px;text-align:center;font-size:11px;color:#0369a1;border-bottom:1px solid #bae6fd">00:30</th>
+          <th colspan="2" style="padding:6px;text-align:center;font-size:11px;color:#0369a1;border-bottom:1px solid #bae6fd">02:30</th>
+          <th colspan="2" style="padding:6px;text-align:center;font-size:11px;color:#0369a1;border-bottom:1px solid #bae6fd">05:00</th>
+          <th colspan="2" style="padding:6px;text-align:center;font-size:11px;color:#7c3aed;border-bottom:1px solid #ede9fe">16:00</th>
+          <th rowspan="2" style="padding:8px;font-size:11px;color:#6b7280;border-bottom:1px solid #e5e7eb">Estado</th>
+        </tr>
+        <tr style="background:#f0f9ff">
+          <th style="padding:5px;text-align:center;font-size:10px;color:#6b7280;border-bottom:1px solid #e5e7eb">O₂</th><th style="padding:5px;text-align:center;font-size:10px;color:#6b7280;border-bottom:1px solid #e5e7eb">T°</th>
+          <th style="padding:5px;text-align:center;font-size:10px;color:#6b7280;border-bottom:1px solid #e5e7eb">O₂</th><th style="padding:5px;text-align:center;font-size:10px;color:#6b7280;border-bottom:1px solid #e5e7eb">T°</th>
+          <th style="padding:5px;text-align:center;font-size:10px;color:#6b7280;border-bottom:1px solid #e5e7eb">O₂</th><th style="padding:5px;text-align:center;font-size:10px;color:#6b7280;border-bottom:1px solid #e5e7eb">T°</th>
+          <th style="padding:5px;text-align:center;font-size:10px;color:#6b7280;border-bottom:1px solid #e5e7eb">O₂</th><th style="padding:5px;text-align:center;font-size:10px;color:#6b7280;border-bottom:1px solid #e5e7eb">T°</th>
+        </tr>
+      </thead><tbody>`;
+    resultados.forEach(({ps, dato}) => {
+      if (!dato) {
+        html += `<tr class="ps-row" onclick="verDetallePiscina('${ps}')"><td class="ps-nombre">${ps}</td><td colspan="9" style="color:#9ca3af;font-size:12px">Sin datos</td></tr>`;
+        return;
+      }
+      const vals = [dato.oxigeno_00, dato.oxigeno_02, dato.oxigeno_am].filter(v=>v!=null);
+      const minVal = vals.length ? Math.min(...vals) : null;
+      const worst = minVal != null ? (minVal < 2.9 ? 'c' : minVal < 3.5 ? 'v' : 'n') : 'n';
+      const dotCls = {c:'dot-c',v:'dot-v',n:'dot-n'}[worst];
+      const lbl = {c:'🔴 Crítico',v:'🟡 Vigilancia',n:'🟢 Normal'}[worst];
+      const bcCls = {c:'bc rc',v:'bc ry',n:'bc rg'}[worst];
+      html += `<tr class="ps-row" onclick="verDetallePiscina('${ps}')">
+        <td><span class="alerta-dot ${dotCls}"></span><span class="ps-nombre">${ps}</span></td>
+        <td style="text-align:center">${fmtO2(dato.oxigeno_00)}</td><td style="text-align:center">${dato.temp_00??'—'}</td>
+        <td style="text-align:center">${fmtO2(dato.oxigeno_02)}</td><td style="text-align:center">${dato.temp_02??'—'}</td>
+        <td style="text-align:center">${fmtO2(dato.oxigeno_am)}</td><td style="text-align:center">${dato.temp_am??'—'}</td>
+        <td style="text-align:center;color:#7c3aed">${dato.oxigeno_pm??'—'}</td><td style="text-align:center;color:#7c3aed">${dato.temp_pm??'—'}</td>
+        <td><span class="${bcCls}">${lbl}</span></td>
+      </tr>`;
+    });
+    html += `</tbody></table></div>`;
+    html += `<div style="margin-top:8px;font-size:11px;color:#7c3aed">🟣 16:00 = solo dashboard, no genera alerta</div>`;
+  } else {
+    // Tabla normal
+    html = `<div style="overflow-x:auto"><table><thead><tr>
+      <th>Piscina</th><th>O₂ AM</th><th>O₂ PM</th><th>T AM</th><th>T PM</th><th>Estado</th>
+    </tr></thead><tbody>`;
+    resultados.forEach(({ps, dato}) => {
+      if (!dato) {
+        html += `<tr class="ps-row" onclick="verDetallePiscina('${ps}')"><td class="ps-nombre">${ps}</td><td colspan="5" style="color:#9ca3af;font-size:12px">Sin datos</td></tr>`;
+        return;
+      }
+      const eAM = estO2(dato.oxigeno_am), ePM = estO2(dato.oxigeno_pm);
+      const worst = eAM==='c'||ePM==='c'?'c':eAM==='v'||ePM==='v'?'v':'n';
+      const dotCls = {c:'dot-c',v:'dot-v',n:'dot-n'}[worst];
+      const lbl = {c:'🔴 Crítico',v:'🟡 Vigilancia',n:'🟢 Normal'}[worst];
+      const bcCls = {c:'bc rc',v:'bc ry',n:'bc rg'}[worst];
+      html += `<tr class="ps-row" onclick="verDetallePiscina('${ps}')">
+        <td><span class="alerta-dot ${dotCls}"></span><span class="ps-nombre">${ps}</span></td>
+        <td>${dato.oxigeno_am??'—'}</td><td>${dato.oxigeno_pm??'—'}</td>
+        <td>${dato.temp_am??'—'}</td><td>${dato.temp_pm??'—'}</td>
+        <td><span class="${bcCls}">${lbl}</span></td>
+      </tr>`;
+    });
+    html += '</tbody></table></div>';
+  }
+  html += '<p style="font-size:11px;color:#9ca3af;text-align:center;margin-top:10px">Toca una piscina para ver su historial detallado →</p>';
   document.getElementById('resumen-tabla').innerHTML = html;
+}
+
+function fmtO2(v) {
+  if (v == null) return '—';
+  if (v < 2.9) return `<span style="color:#991b1b;font-weight:700">${v}</span>`;
+  if (v < 3.5) return `<span style="color:#92400e;font-weight:700">${v}</span>`;
+  return `<span style="color:#065f46">${v}</span>`;
 }
 
 async function verDetallePiscina(piscina) {
@@ -504,6 +576,7 @@ async function volverCorridaActual() {
 
 async function cargarDetalle() {
   const sector = detalleSector, piscina = detallePiscina, dias = detallePeriodo;
+  const esFimasa3 = sector === FIMASA3;
   const corridaParam = detalleCorrida ? `&corrida=${detalleCorrida}` : '';
   document.getElementById('detalle-metrics').innerHTML = '<div class="spinner" style="margin:10px auto;grid-column:span 2"></div>';
   document.getElementById('detalle-charts').innerHTML = '';
@@ -515,22 +588,80 @@ async function cargarDetalle() {
     return;
   }
   const ultimo = d.datos[d.datos.length-1];
-  const eAM = estO2(ultimo.oxigeno_am), ePM = estO2(ultimo.oxigeno_pm);
-  document.getElementById('detalle-metrics').innerHTML = `
-    <div class="metric-card alerta-${eAM}"><div class="metric-val">${ultimo.oxigeno_am??'—'}</div><div class="metric-lbl">O₂ AM (mg/L)</div></div>
-    <div class="metric-card alerta-${ePM}"><div class="metric-val">${ultimo.oxigeno_pm??'—'}</div><div class="metric-lbl">O₂ PM (mg/L)</div></div>
-    <div class="metric-card"><div class="metric-val" style="color:#f59e0b">${ultimo.temp_am??'—'}</div><div class="metric-lbl">Temp AM (°C)</div></div>
-    <div class="metric-card"><div class="metric-val" style="color:#ef4444">${ultimo.temp_pm??'—'}</div><div class="metric-lbl">Temp PM (°C)</div></div>
-  `;
   const labels = d.datos.map(x=>x.fecha);
   Object.values(charts).forEach(c=>c.destroy());
   charts = {};
-  document.getElementById('detalle-charts').innerHTML = `
-    <div class="chart-wrap"><div class="chart-titulo">🌅 Mañana — O₂ AM y Temperatura AM</div><canvas id="ch-am"></canvas></div>
-    <div class="chart-wrap"><div class="chart-titulo">🌆 Tarde — O₂ PM y Temperatura PM</div><canvas id="ch-pm"></canvas></div>
-  `;
-  charts.am = crearChartDoble('ch-am', labels, d.datos.map(x=>x.oxigeno_am), 'O₂ AM (mg/L)', '#1D9E75', d.datos.map(x=>x.temp_am), 'Temp AM (°C)', '#f59e0b', true);
-  charts.pm = crearChartDoble('ch-pm', labels, d.datos.map(x=>x.oxigeno_pm), 'O₂ PM (mg/L)', '#0F6E56', d.datos.map(x=>x.temp_pm), 'Temp PM (°C)', '#ef4444', true);
+
+  if (esFimasa3) {
+    // Métricas Fimasa 3: 4 mediciones
+    const e00 = estO2(ultimo.oxigeno_00);
+    const e02 = estO2(ultimo.oxigeno_02);
+    const eAM = estO2(ultimo.oxigeno_am);
+    const ePM = estO2(ultimo.oxigeno_pm);
+    document.getElementById('detalle-metrics').innerHTML = `
+      <div class="metric-card alerta-${e00}"><div class="metric-val">${ultimo.oxigeno_00??'—'}</div><div class="metric-lbl">O₂ 00:30 (mg/L)</div></div>
+      <div class="metric-card alerta-${e02}"><div class="metric-val">${ultimo.oxigeno_02??'—'}</div><div class="metric-lbl">O₂ 02:30 (mg/L)</div></div>
+      <div class="metric-card alerta-${eAM}"><div class="metric-val">${ultimo.oxigeno_am??'—'}</div><div class="metric-lbl">O₂ 05:00 (mg/L)</div></div>
+      <div class="metric-card" style="border:1.5px solid #ede9fe"><div class="metric-val" style="color:#7c3aed">${ultimo.oxigeno_pm??'—'}</div><div class="metric-lbl">O₂ 16:00 (mg/L)</div></div>
+    `;
+    document.getElementById('detalle-charts').innerHTML = `
+      <div class="chart-wrap">
+        <div class="chart-titulo">🌙 Madrugada — O₂ (00:30, 02:30, 05:00)</div>
+        <canvas id="ch-madrugada"></canvas>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-titulo">🌅 Temperatura madrugada (00:30, 02:30, 05:00)</div>
+        <canvas id="ch-temp"></canvas>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-titulo" style="color:#7c3aed">🌆 16:00 PM — O₂ y Temperatura</div>
+        <canvas id="ch-pm"></canvas>
+      </div>
+    `;
+    // Gráfica O2 madrugada (3 líneas)
+    charts.madrugada = new Chart(document.getElementById('ch-madrugada').getContext('2d'), {
+      type:'line',
+      data:{labels, datasets:[
+        {label:'O₂ 00:30',data:d.datos.map(x=>x.oxigeno_00),borderColor:'#6366f1',backgroundColor:'#6366f122',borderWidth:2,pointRadius:3,tension:0.3,fill:true,spanGaps:true},
+        {label:'O₂ 02:30',data:d.datos.map(x=>x.oxigeno_02),borderColor:'#0ea5e9',backgroundColor:'transparent',borderWidth:2,pointRadius:3,tension:0.3,fill:false,spanGaps:true},
+        {label:'O₂ 05:00',data:d.datos.map(x=>x.oxigeno_am),borderColor:'#1D9E75',backgroundColor:'transparent',borderWidth:2,pointRadius:3,tension:0.3,fill:false,spanGaps:true},
+        {label:'Crítico',data:d.datos.map(()=>2.9),borderColor:'#ef444466',borderWidth:1.5,borderDash:[5,3],pointRadius:0,fill:false},
+        {label:'Vigilancia',data:d.datos.map(()=>3.5),borderColor:'#f59e0b66',borderWidth:1.5,borderDash:[5,3],pointRadius:0,fill:false},
+      ]},
+      options:{responsive:true,interaction:{mode:'index',intersect:false},plugins:{legend:{display:true,labels:{font:{size:10},boxWidth:16}}},
+        scales:{y:{grid:{color:'#f0f0f0'},ticks:{font:{size:11}},title:{display:true,text:'mg/L',font:{size:10}}},
+          x:{grid:{display:false},ticks:{font:{size:10},maxRotation:45,maxTicksLimit:10}}}}
+    });
+    // Gráfica temperatura madrugada
+    charts.temp = new Chart(document.getElementById('ch-temp').getContext('2d'), {
+      type:'line',
+      data:{labels, datasets:[
+        {label:'T° 00:30',data:d.datos.map(x=>x.temp_00),borderColor:'#6366f1',backgroundColor:'transparent',borderWidth:2,pointRadius:3,tension:0.3,spanGaps:true},
+        {label:'T° 02:30',data:d.datos.map(x=>x.temp_02),borderColor:'#0ea5e9',backgroundColor:'transparent',borderWidth:2,pointRadius:3,tension:0.3,spanGaps:true},
+        {label:'T° 05:00',data:d.datos.map(x=>x.temp_am),borderColor:'#f59e0b',backgroundColor:'transparent',borderWidth:2,pointRadius:3,tension:0.3,spanGaps:true},
+      ]},
+      options:{responsive:true,plugins:{legend:{display:true,labels:{font:{size:10},boxWidth:16}}},
+        scales:{y:{grid:{color:'#f0f0f0'},ticks:{font:{size:11}},title:{display:true,text:'°C',font:{size:10}}},
+          x:{grid:{display:false},ticks:{font:{size:10},maxRotation:45,maxTicksLimit:10}}}}
+    });
+    // Gráfica PM
+    charts.pm = crearChartDoble('ch-pm', labels, d.datos.map(x=>x.oxigeno_pm), 'O₂ 16:00 (mg/L)', '#7c3aed', d.datos.map(x=>x.temp_pm), 'T° 16:00 (°C)', '#ef4444', true);
+  } else {
+    // Métricas normales
+    const eAM = estO2(ultimo.oxigeno_am), ePM = estO2(ultimo.oxigeno_pm);
+    document.getElementById('detalle-metrics').innerHTML = `
+      <div class="metric-card alerta-${eAM}"><div class="metric-val">${ultimo.oxigeno_am??'—'}</div><div class="metric-lbl">O₂ AM (mg/L)</div></div>
+      <div class="metric-card alerta-${ePM}"><div class="metric-val">${ultimo.oxigeno_pm??'—'}</div><div class="metric-lbl">O₂ PM (mg/L)</div></div>
+      <div class="metric-card"><div class="metric-val" style="color:#f59e0b">${ultimo.temp_am??'—'}</div><div class="metric-lbl">Temp AM (°C)</div></div>
+      <div class="metric-card"><div class="metric-val" style="color:#ef4444">${ultimo.temp_pm??'—'}</div><div class="metric-lbl">Temp PM (°C)</div></div>
+    `;
+    document.getElementById('detalle-charts').innerHTML = `
+      <div class="chart-wrap"><div class="chart-titulo">🌅 Mañana — O₂ AM y Temperatura AM</div><canvas id="ch-am"></canvas></div>
+      <div class="chart-wrap"><div class="chart-titulo">🌆 Tarde — O₂ PM y Temperatura PM</div><canvas id="ch-pm"></canvas></div>
+    `;
+    charts.am = crearChartDoble('ch-am', labels, d.datos.map(x=>x.oxigeno_am), 'O₂ AM (mg/L)', '#1D9E75', d.datos.map(x=>x.temp_am), 'Temp AM (°C)', '#f59e0b', true);
+    charts.pm = crearChartDoble('ch-pm', labels, d.datos.map(x=>x.oxigeno_pm), 'O₂ PM (mg/L)', '#0F6E56', d.datos.map(x=>x.temp_pm), 'Temp PM (°C)', '#ef4444', true);
+  }
 }
 
 function setPeriodo(dias, btn) {
@@ -664,18 +795,65 @@ async function enviarFoto(){
 
 function mostrarResultado(d){
   const piscinas=d.piscinas||[];
-  const crit=piscinas.filter(p=>estO2(p.oxigeno_am)==='c'||estO2(p.oxigeno_pm)==='c').length;
-  const vig=piscinas.filter(p=>(estO2(p.oxigeno_am)==='v'||estO2(p.oxigeno_pm)==='v')&&estO2(p.oxigeno_am)!=='c'&&estO2(p.oxigeno_pm)!=='c').length;
-  const norm=piscinas.length-crit-vig;
-  let html=`<div class="estado ok"><div class="estado-icon">✅</div><h3>¡Procesado!</h3><p>${d.sector||''} — ${d.fecha||''} — ${piscinas.length} piscinas</p><p style="margin-top:6px;font-size:12px">${d.alertas_enviadas} biólogos notificados</p><div style="display:flex;gap:8px;justify-content:center;margin-top:10px"><span class="res-badge rc">🔴 ${crit}</span><span class="res-badge ry">🟡 ${vig}</span><span class="res-badge rg">🟢 ${norm}</span></div></div><div style="overflow-x:auto"><table><thead><tr><th>PS</th><th>O₂AM</th><th>O₂PM</th><th>TAM</th><th>TPM</th><th>Estado</th></tr></thead><tbody>`;
-  piscinas.forEach(p=>{
-    const sAM=estO2(p.oxigeno_am),sPM=estO2(p.oxigeno_pm);
-    const w=sAM==='c'||sPM==='c'?'c':sAM==='v'||sPM==='v'?'v':'n';
-    const cls={c:'bc rc',v:'bc ry',n:'bc rg'}[w];
-    const lbl={c:'🔴 Crítico',v:'🟡 Vigilancia',n:'🟢 Normal'}[w];
-    html+=`<tr><td><b>${p.ps}</b></td><td>${p.oxigeno_am??'—'}</td><td>${p.oxigeno_pm??'—'}</td><td>${p.temp_am??'—'}</td><td>${p.temp_pm??'—'}</td><td><span class="${cls}">${lbl}</span></td></tr>`;
-  });
-  html+='</tbody></table></div>';
+  const esFimasa3 = d.sector === FIMASA3;
+
+  let crit, vig, norm;
+  if (esFimasa3) {
+    crit = piscinas.filter(p=>estO2(p.oxigeno_00)==='c'||estO2(p.oxigeno_02)==='c'||estO2(p.oxigeno_am)==='c').length;
+    vig  = piscinas.filter(p=>{
+      const e00=estO2(p.oxigeno_00),e02=estO2(p.oxigeno_02),eam=estO2(p.oxigeno_am);
+      return (e00==='v'||e02==='v'||eam==='v') && e00!=='c' && e02!=='c' && eam!=='c';
+    }).length;
+  } else {
+    crit = piscinas.filter(p=>estO2(p.oxigeno_am)==='c'||estO2(p.oxigeno_pm)==='c').length;
+    vig  = piscinas.filter(p=>(estO2(p.oxigeno_am)==='v'||estO2(p.oxigeno_pm)==='v')&&estO2(p.oxigeno_am)!=='c'&&estO2(p.oxigeno_pm)!=='c').length;
+  }
+  norm = piscinas.length - crit - vig;
+
+  let html=`<div class="estado ok"><div class="estado-icon">✅</div><h3>¡Procesado!</h3><p>${d.sector||''} — ${d.fecha||''} — ${piscinas.length} piscinas</p><p style="margin-top:6px;font-size:12px">${d.alertas_enviadas} biólogos notificados</p><div style="display:flex;gap:8px;justify-content:center;margin-top:10px"><span class="res-badge rc">🔴 ${crit}</span><span class="res-badge ry">🟡 ${vig}</span><span class="res-badge rg">🟢 ${norm}</span></div></div>`;
+
+  if (esFimasa3) {
+    html += `<div style="overflow-x:auto"><table><thead>
+      <tr style="background:#e0f2fe">
+        <th rowspan="2">PS</th>
+        <th colspan="2" style="text-align:center;color:#0369a1">00:30</th>
+        <th colspan="2" style="text-align:center;color:#0369a1">02:30</th>
+        <th colspan="2" style="text-align:center;color:#0369a1">05:00</th>
+        <th colspan="2" style="text-align:center;color:#7c3aed">16:00</th>
+        <th rowspan="2">Estado</th>
+      </tr>
+      <tr style="background:#f0f9ff">
+        <th style="text-align:center;font-size:10px">O₂</th><th style="text-align:center;font-size:10px">T°</th>
+        <th style="text-align:center;font-size:10px">O₂</th><th style="text-align:center;font-size:10px">T°</th>
+        <th style="text-align:center;font-size:10px">O₂</th><th style="text-align:center;font-size:10px">T°</th>
+        <th style="text-align:center;font-size:10px">O₂</th><th style="text-align:center;font-size:10px">T°</th>
+      </tr>
+    </thead><tbody>`;
+    piscinas.forEach(p=>{
+      const vals=[p.oxigeno_00,p.oxigeno_02,p.oxigeno_am].filter(v=>v!=null);
+      const minVal=vals.length?Math.min(...vals):null;
+      const w=minVal!=null?(minVal<2.9?'c':minVal<3.5?'v':'n'):'n';
+      const cls={c:'bc rc',v:'bc ry',n:'bc rg'}[w];
+      const lbl={c:'🔴 Crítico',v:'🟡 Vigilancia',n:'🟢 Normal'}[w];
+      html+=`<tr><td><b>${p.ps}</b></td>
+        <td style="text-align:center">${p.oxigeno_00??'—'}</td><td style="text-align:center">${p.temp_00??'—'}</td>
+        <td style="text-align:center">${p.oxigeno_02??'—'}</td><td style="text-align:center">${p.temp_02??'—'}</td>
+        <td style="text-align:center">${p.oxigeno_am??'—'}</td><td style="text-align:center">${p.temp_am??'—'}</td>
+        <td style="text-align:center;color:#7c3aed">${p.oxigeno_pm??'—'}</td><td style="text-align:center;color:#7c3aed">${p.temp_pm??'—'}</td>
+        <td><span class="${cls}">${lbl}</span></td></tr>`;
+    });
+    html+='</tbody></table></div>';
+  } else {
+    html+=`<div style="overflow-x:auto"><table><thead><tr><th>PS</th><th>O₂AM</th><th>O₂PM</th><th>TAM</th><th>TPM</th><th>Estado</th></tr></thead><tbody>`;
+    piscinas.forEach(p=>{
+      const sAM=estO2(p.oxigeno_am),sPM=estO2(p.oxigeno_pm);
+      const w=sAM==='c'||sPM==='c'?'c':sAM==='v'||sPM==='v'?'v':'n';
+      const cls={c:'bc rc',v:'bc ry',n:'bc rg'}[w];
+      const lbl={c:'🔴 Crítico',v:'🟡 Vigilancia',n:'🟢 Normal'}[w];
+      html+=`<tr><td><b>${p.ps}</b></td><td>${p.oxigeno_am??'—'}</td><td>${p.oxigeno_pm??'—'}</td><td>${p.temp_am??'—'}</td><td>${p.temp_pm??'—'}</td><td><span class="${cls}">${lbl}</span></td></tr>`;
+    });
+    html+='</tbody></table></div>';
+  }
   document.getElementById('foto-estado').innerHTML=html;
 }
 
