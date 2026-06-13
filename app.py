@@ -16,6 +16,13 @@ CAMPOS = ["Rolesa 1","Rolesa 2","Pantrusko 1","Pantrusko 2",
           "Caesa 1","Caesa 2","Fimasa 1","Fimasa 2","Fimasa 3",
           "Recorcholis 1","Recorcholis 2"]
 
+# Fimasa 3 tiene 4 mediciones: 00:30, 02:30, 05:00 (AM), 16:00 (PM)
+# oxigeno_00/temp_00 = 00:30
+# oxigeno_02/temp_02 = 02:30
+# oxigeno_am/temp_am = 05:00
+# oxigeno_pm/temp_pm = 16:00 (solo dashboard, no email)
+FIMASA3 = "Fimasa 3"
+
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
@@ -50,6 +57,12 @@ def init_db():
             created_at TEXT
         )
     """)
+    # Migración: agregar columnas para Fimasa 3
+    for col, tipo in [("oxigeno_00","REAL"), ("temp_00","REAL"), ("oxigeno_02","REAL"), ("temp_02","REAL")]:
+        try:
+            cur.execute(f"ALTER TABLE lecturas ADD COLUMN IF NOT EXISTS {col} {tipo}")
+        except Exception as e:
+            print(f"Columna {col} ya existe o error: {e}")
     con.commit()
     cur.close()
     con.close()
@@ -80,6 +93,7 @@ def guardar_lecturas(sector, fecha, piscinas):
     con = get_conn()
     cur = con.cursor()
     now = datetime.utcnow().isoformat()
+    es_fimasa3 = sector == FIMASA3
     for p in piscinas:
         corrida = get_corrida_actual(cur, sector, p["ps"])
         cur.execute(
@@ -87,19 +101,41 @@ def guardar_lecturas(sector, fecha, piscinas):
             (sector, fecha, p["ps"], corrida)
         )
         if cur.fetchone():
-            cur.execute("""
-                UPDATE lecturas SET oxigeno_am=%s, oxigeno_pm=%s, temp_am=%s, temp_pm=%s, created_at=%s
-                WHERE sector=%s AND fecha=%s AND piscina=%s AND corrida=%s
-            """, (p.get("oxigeno_am"), p.get("oxigeno_pm"),
-                  p.get("temp_am"), p.get("temp_pm"), now,
-                  sector, fecha, p["ps"], corrida))
+            if es_fimasa3:
+                cur.execute("""
+                    UPDATE lecturas SET oxigeno_am=%s, oxigeno_pm=%s, temp_am=%s, temp_pm=%s,
+                        oxigeno_00=%s, temp_00=%s, oxigeno_02=%s, temp_02=%s, created_at=%s
+                    WHERE sector=%s AND fecha=%s AND piscina=%s AND corrida=%s
+                """, (p.get("oxigeno_am"), p.get("oxigeno_pm"),
+                      p.get("temp_am"), p.get("temp_pm"),
+                      p.get("oxigeno_00"), p.get("temp_00"),
+                      p.get("oxigeno_02"), p.get("temp_02"), now,
+                      sector, fecha, p["ps"], corrida))
+            else:
+                cur.execute("""
+                    UPDATE lecturas SET oxigeno_am=%s, oxigeno_pm=%s, temp_am=%s, temp_pm=%s, created_at=%s
+                    WHERE sector=%s AND fecha=%s AND piscina=%s AND corrida=%s
+                """, (p.get("oxigeno_am"), p.get("oxigeno_pm"),
+                      p.get("temp_am"), p.get("temp_pm"), now,
+                      sector, fecha, p["ps"], corrida))
         else:
-            cur.execute("""
-                INSERT INTO lecturas (fecha, sector, piscina, corrida, oxigeno_am, oxigeno_pm, temp_am, temp_pm, created_at)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
-            """, (fecha, sector, p["ps"], corrida,
-                  p.get("oxigeno_am"), p.get("oxigeno_pm"),
-                  p.get("temp_am"), p.get("temp_pm"), now))
+            if es_fimasa3:
+                cur.execute("""
+                    INSERT INTO lecturas (fecha, sector, piscina, corrida, oxigeno_am, oxigeno_pm,
+                        temp_am, temp_pm, oxigeno_00, temp_00, oxigeno_02, temp_02, created_at)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                """, (fecha, sector, p["ps"], corrida,
+                      p.get("oxigeno_am"), p.get("oxigeno_pm"),
+                      p.get("temp_am"), p.get("temp_pm"),
+                      p.get("oxigeno_00"), p.get("temp_00"),
+                      p.get("oxigeno_02"), p.get("temp_02"), now))
+            else:
+                cur.execute("""
+                    INSERT INTO lecturas (fecha, sector, piscina, corrida, oxigeno_am, oxigeno_pm, temp_am, temp_pm, created_at)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                """, (fecha, sector, p["ps"], corrida,
+                      p.get("oxigeno_am"), p.get("oxigeno_pm"),
+                      p.get("temp_am"), p.get("temp_pm"), now))
     con.commit()
     cur.close()
     con.close()
@@ -151,12 +187,12 @@ def guardar_usuario_db(nombre, email, whatsapp, campos, rol):
 
 # ── Resumen por campo (últimos N días) ─────────────────────
 def get_resumen_campo(sector, dias=3):
-    """Devuelve resumen de piscinas con alertas y comparación de días."""
     try:
         con = get_conn()
         cur = con.cursor(cursor_factory=RealDictCursor)
         cur.execute("""
-            SELECT piscina, fecha, oxigeno_am, oxigeno_pm, temp_am, temp_pm
+            SELECT piscina, fecha, oxigeno_am, oxigeno_pm, temp_am, temp_pm,
+                   oxigeno_00, temp_00, oxigeno_02, temp_02
             FROM lecturas
             WHERE sector=%s AND corrida=(
                 SELECT MAX(corrida) FROM lecturas l2 WHERE l2.sector=lecturas.sector AND l2.piscina=lecturas.piscina
@@ -193,7 +229,6 @@ def get_resumen_campo(sector, dias=3):
         return []
 
 def get_resumen_todos_campos():
-    """Resumen de todos los campos para dashboard gerencia."""
     resumen = {}
     for campo in CAMPOS:
         datos = get_resumen_campo(campo, dias=4)
@@ -201,9 +236,18 @@ def get_resumen_todos_campos():
             resumen[campo] = datos
     return resumen
 
+# ── Helpers alertas Fimasa 3 ───────────────────────────────
+def tiene_alerta_fimasa3(u):
+    """Verifica si alguna de las 4 mediciones de Fimasa 3 tiene alerta."""
+    vals = [u.get("oxigeno_00"), u.get("oxigeno_02"), u.get("oxigeno_am"), u.get("oxigeno_pm")]
+    return any(v is not None and v < O2_VIGILANCIA for v in vals)
+
+def tiene_critico_fimasa3(u):
+    vals = [u.get("oxigeno_00"), u.get("oxigeno_02"), u.get("oxigeno_am"), u.get("oxigeno_pm")]
+    return any(v is not None and v < O2_CRITICO for v in vals)
+
 # ── Email detallado gerencia ───────────────────────────────
 def construir_email_gerencia_consolidado(fecha):
-    """Email consolidado con TODOS los campos que tienen alertas."""
     campos_con_alertas = []
     total_criticos = 0
     total_vigilancia = 0
@@ -212,19 +256,20 @@ def construir_email_gerencia_consolidado(fecha):
         piscinas_data = get_resumen_campo(campo, dias=4)
         if not piscinas_data:
             continue
-        alertas = [p for p in piscinas_data if
-                   (p["ultimo"].get("oxigeno_am") is not None and p["ultimo"]["oxigeno_am"] < O2_VIGILANCIA) or
-                   (p["ultimo"].get("oxigeno_pm") is not None and p["ultimo"]["oxigeno_pm"] < O2_VIGILANCIA)]
-        criticos = [p for p in alertas if
-                    (p["ultimo"].get("oxigeno_am") is not None and p["ultimo"]["oxigeno_am"] < O2_CRITICO) or
-                    (p["ultimo"].get("oxigeno_pm") is not None and p["ultimo"]["oxigeno_pm"] < O2_CRITICO)]
+
+        if campo == FIMASA3:
+            alertas = [p for p in piscinas_data if tiene_alerta_fimasa3(p["ultimo"])]
+            criticos = [p for p in alertas if tiene_critico_fimasa3(p["ultimo"])]
+        else:
+            alertas = [p for p in piscinas_data if
+                       (p["ultimo"].get("oxigeno_am") is not None and p["ultimo"]["oxigeno_am"] < O2_VIGILANCIA) or
+                       (p["ultimo"].get("oxigeno_pm") is not None and p["ultimo"]["oxigeno_pm"] < O2_VIGILANCIA)]
+            criticos = [p for p in alertas if
+                        (p["ultimo"].get("oxigeno_am") is not None and p["ultimo"]["oxigeno_am"] < O2_CRITICO) or
+                        (p["ultimo"].get("oxigeno_pm") is not None and p["ultimo"]["oxigeno_pm"] < O2_CRITICO)]
+
         if alertas:
-            campos_con_alertas.append({
-                "campo": campo,
-                "piscinas": piscinas_data,
-                "alertas": alertas,
-                "criticos": criticos
-            })
+            campos_con_alertas.append({"campo": campo, "piscinas": piscinas_data, "alertas": alertas, "criticos": criticos})
             total_criticos += len(criticos)
             total_vigilancia += len(alertas) - len(criticos)
 
@@ -238,49 +283,39 @@ def construir_email_gerencia_consolidado(fecha):
         f"{nivel} — REPORTE CONSOLIDADO",
         f"Fecha: {fecha}",
         f"Campos con alertas: {len(campos_con_alertas)} | Piscinas críticas: {total_criticos} | En vigilancia: {total_vigilancia}",
-        "=" * 60,
-        ""
+        "=" * 60, ""
     ]
 
     for info in campos_con_alertas:
         campo = info["campo"]
         piscinas_data = info["piscinas"]
-
         o2_am_vals = [p["ultimo"]["oxigeno_am"] for p in piscinas_data if p["ultimo"].get("oxigeno_am") is not None]
         temp_am_vals = [p["ultimo"]["temp_am"] for p in piscinas_data if p["ultimo"].get("temp_am") is not None]
         prom_o2_am  = round(sum(o2_am_vals)/len(o2_am_vals), 2) if o2_am_vals else "—"
         prom_temp_am = round(sum(temp_am_vals)/len(temp_am_vals), 1) if temp_am_vals else "—"
 
         lineas.append(f"📍 CAMPO: {campo}")
-        lineas.append(f"   Promedio O₂ AM: {prom_o2_am} mg/L | Promedio Temp AM: {prom_temp_am}°C")
+        lineas.append(f"   Promedio O₂ 05:00: {prom_o2_am} mg/L | Promedio Temp: {prom_temp_am}°C")
         lineas.append(f"   Total piscinas: {len(piscinas_data)} | Alertas: {len(info['alertas'])} | Críticas: {len(info['criticos'])}")
         lineas.append("")
-
         lineas.append("   ⚠️  PISCINAS EN ALERTA:")
+
         for p in info["alertas"]:
             u = p["ultimo"]
-            o2am = u.get("oxigeno_am", "—")
-            o2pm = u.get("oxigeno_pm", "—")
-            tam  = u.get("temp_am", "—")
-            tpm  = u.get("temp_pm", "—")
-            e = "🔴" if (isinstance(o2am,float) and o2am<O2_CRITICO) or (isinstance(o2pm,float) and o2pm<O2_CRITICO) else "🟡"
-            lineas.append(f"   {e} Ps {p['piscina']:>3}: O₂AM={str(o2am):>5} mg/L | O₂PM={str(o2pm):>5} mg/L | TAM={str(tam):>5}°C | TPM={str(tpm):>5}°C")
+            if campo == FIMASA3:
+                o200 = u.get("oxigeno_00", "—"); t00 = u.get("temp_00", "—")
+                o202 = u.get("oxigeno_02", "—"); t02 = u.get("temp_02", "—")
+                o2am = u.get("oxigeno_am", "—"); tam  = u.get("temp_am", "—")
+                e = "🔴" if tiene_critico_fimasa3(u) else "🟡"
+                lineas.append(f"   {e} Ps {p['piscina']:>3}: 00:30 O₂={str(o200):>5} T={str(t00):>5}°C | 02:30 O₂={str(o202):>5} T={str(t02):>5}°C | 05:00 O₂={str(o2am):>5} T={str(tam):>5}°C")
+            else:
+                o2am = u.get("oxigeno_am", "—"); o2pm = u.get("oxigeno_pm", "—")
+                tam  = u.get("temp_am", "—");  tpm  = u.get("temp_pm", "—")
+                e = "🔴" if (isinstance(o2am,float) and o2am<O2_CRITICO) or (isinstance(o2pm,float) and o2pm<O2_CRITICO) else "🟡"
+                lineas.append(f"   {e} Ps {p['piscina']:>3}: O₂AM={str(o2am):>5} mg/L | O₂PM={str(o2pm):>5} mg/L | TAM={str(tam):>5}°C | TPM={str(tpm):>5}°C")
             if len(p["historial"]) > 1:
-                hist = " | ".join([f"{h['fecha']}: O₂AM={h.get('oxigeno_am','—')}" for h in p["historial"][:-1]])
+                hist = " | ".join([f"{h['fecha']}: O₂={h.get('oxigeno_am','—')}" for h in p["historial"][:-1]])
                 lineas.append(f"          Ant: {hist}")
-        lineas.append("")
-
-        lineas.append("   📋 TODAS LAS PISCINAS:")
-        for p in piscinas_data:
-            u = p["ultimo"]
-            if not u: continue
-            o2am = u.get("oxigeno_am", "—")
-            o2pm = u.get("oxigeno_pm", "—")
-            tam  = u.get("temp_am", "—")
-            tpm  = u.get("temp_pm", "—")
-            e = "🔴" if (isinstance(o2am,float) and o2am<O2_CRITICO) or (isinstance(o2pm,float) and o2pm<O2_CRITICO) else \
-                "🟡" if (isinstance(o2am,float) and o2am<O2_VIGILANCIA) or (isinstance(o2pm,float) and o2pm<O2_VIGILANCIA) else "🟢"
-            lineas.append(f"   {e} Ps {p['piscina']:>3}: O₂AM={str(o2am):>5} | O₂PM={str(o2pm):>5} | TAM={str(tam):>5}°C | TPM={str(tpm):>5}°C")
         lineas.append("")
         lineas.append("─" * 60)
         lineas.append("")
@@ -289,89 +324,25 @@ def construir_email_gerencia_consolidado(fecha):
     return asunto, cuerpo
 
 def construir_email_gerencia(sector, piscinas_data, fecha):
-    """Construye email HTML detallado para gerencia."""
-    alertas = [p for p in piscinas_data if
-               (p["ultimo"].get("oxigeno_am") is not None and p["ultimo"]["oxigeno_am"] < O2_VIGILANCIA) or
-               (p["ultimo"].get("oxigeno_pm") is not None and p["ultimo"]["oxigeno_pm"] < O2_VIGILANCIA)]
+    if sector == FIMASA3:
+        alertas = [p for p in piscinas_data if tiene_alerta_fimasa3(p["ultimo"])]
+    else:
+        alertas = [p for p in piscinas_data if
+                   (p["ultimo"].get("oxigeno_am") is not None and p["ultimo"]["oxigeno_am"] < O2_VIGILANCIA) or
+                   (p["ultimo"].get("oxigeno_pm") is not None and p["ultimo"]["oxigeno_pm"] < O2_VIGILANCIA)]
 
     if not alertas and fecha != "resumen_diario":
         return None, None
 
-    o2_am_vals = [p["ultimo"]["oxigeno_am"] for p in piscinas_data if p["ultimo"].get("oxigeno_am") is not None]
-    o2_pm_vals = [p["ultimo"]["oxigeno_pm"] for p in piscinas_data if p["ultimo"].get("oxigeno_pm") is not None]
-    temp_am_vals = [p["ultimo"]["temp_am"] for p in piscinas_data if p["ultimo"].get("temp_am") is not None]
-    temp_pm_vals = [p["ultimo"]["temp_pm"] for p in piscinas_data if p["ultimo"].get("temp_pm") is not None]
-
-    prom_o2_am  = round(sum(o2_am_vals)/len(o2_am_vals), 2) if o2_am_vals else "—"
-    prom_o2_pm  = round(sum(o2_pm_vals)/len(o2_pm_vals), 2) if o2_pm_vals else "—"
-    prom_temp_am = round(sum(temp_am_vals)/len(temp_am_vals), 1) if temp_am_vals else "—"
-    prom_temp_pm = round(sum(temp_pm_vals)/len(temp_pm_vals), 1) if temp_pm_vals else "—"
-
     criticos = [p for p in alertas if
-                (p["ultimo"].get("oxigeno_am") is not None and p["ultimo"]["oxigeno_am"] < O2_CRITICO) or
-                (p["ultimo"].get("oxigeno_pm") is not None and p["ultimo"]["oxigeno_pm"] < O2_CRITICO)]
+                (sector == FIMASA3 and tiene_critico_fimasa3(p["ultimo"])) or
+                (sector != FIMASA3 and (
+                    (p["ultimo"].get("oxigeno_am") is not None and p["ultimo"]["oxigeno_am"] < O2_CRITICO) or
+                    (p["ultimo"].get("oxigeno_pm") is not None and p["ultimo"]["oxigeno_pm"] < O2_CRITICO)))]
 
     nivel = "🔴 ALERTA CRÍTICA" if criticos else ("🟡 VIGILANCIA" if alertas else "🟢 RESUMEN DIARIO")
     asunto = f"{nivel} — {sector} — {fecha}"
-
-    lineas = [
-        f"{nivel}",
-        f"Campo: {sector} | Fecha: {fecha}",
-        "=" * 50,
-        "",
-    ]
-
-    if alertas:
-        lineas.append("⚠️  PISCINAS CON OXÍGENO BAJO:")
-        lineas.append("")
-        for p in alertas:
-            u = p["ultimo"]
-            o2am = u.get("oxigeno_am", "—")
-            o2pm = u.get("oxigeno_pm", "—")
-            tam  = u.get("temp_am", "—")
-            tpm  = u.get("temp_pm", "—")
-            estado_am = "🔴" if isinstance(o2am, float) and o2am < O2_CRITICO else "🟡"
-            estado_pm = "🔴" if isinstance(o2pm, float) and o2pm < O2_CRITICO else "🟡"
-
-            lineas.append(f"  Piscina {p['piscina']}:")
-            lineas.append(f"    O₂ AM: {o2am} mg/L {estado_am}  |  O₂ PM: {o2pm} mg/L {estado_pm}")
-            lineas.append(f"    Temp AM: {tam}°C  |  Temp PM: {tpm}°C")
-
-            if len(p["historial"]) > 1:
-                lineas.append(f"    Últimos días:")
-                for h in p["historial"][:-1]:
-                    lineas.append(f"      {h['fecha']}: O₂ AM={h.get('oxigeno_am','—')} | O₂ PM={h.get('oxigeno_pm','—')}")
-            lineas.append("")
-
-    lineas.append("─" * 50)
-    lineas.append("📊 RESUMEN DEL CAMPO:")
-    lineas.append(f"  Total piscinas reportadas: {len(piscinas_data)}")
-    lineas.append(f"  Piscinas en alerta: {len(alertas)}")
-    lineas.append(f"  Piscinas críticas: {len(criticos)}")
-    lineas.append("")
-    lineas.append("📈 PROMEDIOS:")
-    lineas.append(f"  O₂ AM promedio:   {prom_o2_am} mg/L")
-    lineas.append(f"  O₂ PM promedio:   {prom_o2_pm} mg/L")
-    lineas.append(f"  Temp AM promedio: {prom_temp_am}°C")
-    lineas.append(f"  Temp PM promedio: {prom_temp_pm}°C")
-    lineas.append("")
-
-    lineas.append("─" * 50)
-    lineas.append("📋 DETALLE COMPLETO DE PISCINAS:")
-    lineas.append("")
-    for p in piscinas_data:
-        u = p["ultimo"]
-        if not u:
-            continue
-        o2am = u.get("oxigeno_am", "—")
-        o2pm = u.get("oxigeno_pm", "—")
-        tam  = u.get("temp_am", "—")
-        tpm  = u.get("temp_pm", "—")
-        e = "🔴" if (isinstance(o2am,float) and o2am<O2_CRITICO) or (isinstance(o2pm,float) and o2pm<O2_CRITICO) else \
-            "🟡" if (isinstance(o2am,float) and o2am<O2_VIGILANCIA) or (isinstance(o2pm,float) and o2pm<O2_VIGILANCIA) else "🟢"
-        lineas.append(f"  {e} Ps {p['piscina']:>3}: O₂AM={str(o2am):>5} O₂PM={str(o2pm):>5} | TAM={str(tam):>5}°C TPM={str(tpm):>5}°C")
-
-    cuerpo = "\n".join(lineas)
+    cuerpo = f"{nivel}\nCampo: {sector} | Fecha: {fecha}"
     return asunto, cuerpo
 
 # ── Rutas ──────────────────────────────────────────────────
@@ -414,7 +385,7 @@ def procesar():
     mime = archivo.content_type or "image/jpeg"
     try:
         print("Llamando a IA...")
-        datos = extraer_con_ia(imagen_b64, mime)
+        datos = extraer_con_ia(imagen_b64, mime, campo)
         print(f"IA respondio: {len(datos.get('piscinas',[]))} piscinas")
         if campo:
             datos["sector"] = campo
@@ -446,13 +417,11 @@ def resumen_diario():
             rol = u.get("rol", "biologo")
 
             if rol == "gerencia":
-                # Un solo email consolidado con todos los campos
                 asunto, cuerpo, html_body = construir_html_gerencia_consolidado(fecha_hoy)
                 if asunto:
                     enviar_email_postmark(u["email"], u.get("nombre",""), asunto, cuerpo, html=html_body)
                     enviados += 1
             else:
-                # Un email por cada campo asignado al biólogo
                 for campo in u.get("campos", []):
                     piscinas_data = get_resumen_campo(campo, dias=4)
                     if not piscinas_data:
@@ -461,22 +430,40 @@ def resumen_diario():
                     alertas = []
                     for p in piscinas_data:
                         u2 = p["ultimo"]
-                        eam = estado_o2(u2.get("oxigeno_am"))
-                        epm = estado_o2(u2.get("oxigeno_pm"))
-                        if eam != "normal" or epm != "normal":
-                            alertas.append({
-                                "ps": p["piscina"],
-                                "estado_am": eam,
-                                "estado_pm": epm,
-                                **u2
-                            })
+                        if campo == FIMASA3:
+                            # Para Fimasa 3 evalúa las 3 mediciones de madrugada (no PM que es solo dashboard)
+                            e00 = estado_o2(u2.get("oxigeno_00"))
+                            e02 = estado_o2(u2.get("oxigeno_02"))
+                            eam = estado_o2(u2.get("oxigeno_am"))
+                            if e00 != "normal" or e02 != "normal" or eam != "normal":
+                                alertas.append({
+                                    "ps": p["piscina"],
+                                    "estado_00": e00, "estado_02": e02, "estado_am": eam,
+                                    "estado_pm": "normal",
+                                    **u2
+                                })
+                        else:
+                            eam = estado_o2(u2.get("oxigeno_am"))
+                            epm = estado_o2(u2.get("oxigeno_pm"))
+                            if eam != "normal" or epm != "normal":
+                                alertas.append({
+                                    "ps": p["piscina"],
+                                    "estado_am": eam, "estado_pm": epm,
+                                    **u2
+                                })
                     if not alertas:
                         continue
-                    criticos = [a for a in alertas if a["estado_am"]=="critico" or a["estado_pm"]=="critico"]
+                    if campo == FIMASA3:
+                        criticos = [a for a in alertas if a["estado_00"]=="critico" or a["estado_02"]=="critico" or a["estado_am"]=="critico"]
+                    else:
+                        criticos = [a for a in alertas if a["estado_am"]=="critico" or a["estado_pm"]=="critico"]
                     nivel = "ALERTA CRITICA" if criticos else "VIGILANCIA"
                     asunto = f"{'🔴' if criticos else '🟡'} {nivel} - {campo} - {fecha_hoy}"
                     cuerpo = f"{nivel}\nSector: {campo} | Fecha: {fecha_hoy}"
-                    html_body = construir_html_biologo(campo, alertas, todas, fecha_hoy)
+                    if campo == FIMASA3:
+                        html_body = construir_html_biologo_fimasa3(campo, alertas, todas, fecha_hoy)
+                    else:
+                        html_body = construir_html_biologo(campo, alertas, todas, fecha_hoy)
                     enviar_email_postmark(u["email"], u.get("nombre",""), asunto, cuerpo, html=html_body)
                     enviados += 1
 
@@ -488,18 +475,21 @@ def resumen_diario():
 
 @app.route("/api/dashboard-gerencia", methods=["GET"])
 def dashboard_gerencia():
-    """Dashboard resumen para gerencia."""
     try:
         resumen = get_resumen_todos_campos()
         fecha_hoy = (datetime.utcnow() - timedelta(hours=5)).strftime("%d/%m/%Y")
         resultado = []
         for campo, piscinas in resumen.items():
-            alertas = sum(1 for p in piscinas if
-                p["ultimo"].get("oxigeno_am") is not None and p["ultimo"]["oxigeno_am"] < O2_VIGILANCIA or
-                p["ultimo"].get("oxigeno_pm") is not None and p["ultimo"]["oxigeno_pm"] < O2_VIGILANCIA)
-            criticos = sum(1 for p in piscinas if
-                p["ultimo"].get("oxigeno_am") is not None and p["ultimo"]["oxigeno_am"] < O2_CRITICO or
-                p["ultimo"].get("oxigeno_pm") is not None and p["ultimo"]["oxigeno_pm"] < O2_CRITICO)
+            if campo == FIMASA3:
+                alertas = sum(1 for p in piscinas if tiene_alerta_fimasa3(p["ultimo"]))
+                criticos = sum(1 for p in piscinas if tiene_critico_fimasa3(p["ultimo"]))
+            else:
+                alertas = sum(1 for p in piscinas if
+                    p["ultimo"].get("oxigeno_am") is not None and p["ultimo"]["oxigeno_am"] < O2_VIGILANCIA or
+                    p["ultimo"].get("oxigeno_pm") is not None and p["ultimo"]["oxigeno_pm"] < O2_VIGILANCIA)
+                criticos = sum(1 for p in piscinas if
+                    p["ultimo"].get("oxigeno_am") is not None and p["ultimo"]["oxigeno_am"] < O2_CRITICO or
+                    p["ultimo"].get("oxigeno_pm") is not None and p["ultimo"]["oxigeno_pm"] < O2_CRITICO)
             o2_am_vals = [p["ultimo"]["oxigeno_am"] for p in piscinas if p["ultimo"].get("oxigeno_am") is not None]
             prom_o2_am = round(sum(o2_am_vals)/len(o2_am_vals), 2) if o2_am_vals else None
             resultado.append({
@@ -509,7 +499,8 @@ def dashboard_gerencia():
                 "criticos": criticos,
                 "prom_o2_am": prom_o2_am,
                 "ultima_fecha": piscinas[0]["ultimo"].get("fecha") if piscinas and piscinas[0]["ultimo"] else None,
-                "piscinas": piscinas
+                "piscinas": piscinas,
+                "es_fimasa3": campo == FIMASA3
             })
         return jsonify({"ok": True, "resumen": resultado, "fecha": fecha_hoy})
     except Exception as e:
@@ -548,7 +539,8 @@ def historico():
         cur = con.cursor(cursor_factory=RealDictCursor)
         if corrida:
             cur.execute("""
-                SELECT fecha, oxigeno_am, oxigeno_pm, temp_am, temp_pm, corrida
+                SELECT fecha, oxigeno_am, oxigeno_pm, temp_am, temp_pm, corrida,
+                       oxigeno_00, temp_00, oxigeno_02, temp_02
                 FROM lecturas WHERE sector=%s AND piscina=%s AND corrida=%s
                 ORDER BY created_at ASC
             """, (sector, piscina, int(corrida)))
@@ -557,7 +549,8 @@ def historico():
             row = cur.fetchone()
             max_corrida = row["mc"] if row and row["mc"] else 1
             cur.execute("""
-                SELECT fecha, oxigeno_am, oxigeno_pm, temp_am, temp_pm, corrida
+                SELECT fecha, oxigeno_am, oxigeno_pm, temp_am, temp_pm, corrida,
+                       oxigeno_00, temp_00, oxigeno_02, temp_02
                 FROM lecturas WHERE sector=%s AND piscina=%s AND corrida=%s
                 ORDER BY created_at ASC LIMIT %s
             """, (sector, piscina, max_corrida, dias))
@@ -565,7 +558,8 @@ def historico():
         cur.close(); con.close()
         datos = [dict(r) for r in rows]
         corrida_num = datos[0]["corrida"] if datos else 1
-        return jsonify({"ok": True, "datos": datos, "sector": sector, "piscina": piscina, "corrida": corrida_num})
+        return jsonify({"ok": True, "datos": datos, "sector": sector, "piscina": piscina,
+                        "corrida": corrida_num, "es_fimasa3": sector == FIMASA3})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -587,13 +581,41 @@ def get_piscinas():
         return jsonify({"error": str(e)}), 500
 
 # ── IA ─────────────────────────────────────────────────────
-def extraer_con_ia(imagen_b64, mime):
+def extraer_con_ia(imagen_b64, mime, campo=""):
+    if campo == FIMASA3:
+        prompt = ('Eres un experto en acuicultura leyendo hojas de parámetros de piscinas camaroneras de FIMASA SECTOR 3. '
+                  'Este campo tiene 4 mediciones por piscina: 00:30 AM, 02:30 AM, 05:00 AM y 16:00 PM. '
+                  'Cada medición tiene oxígeno y temperatura. '
+                  'Lee cada valor DOS VECES antes de confirmar. '
+                  'Rangos típicos: oxígeno 1.0-15.0 mg/L, temperatura 20.0-35.0°C. '
+                  'Distingue con cuidado: 3 vs 8, 1 vs 7, 5 vs 6, 0 vs 9, punto decimal vs coma. '
+                  'Si un valor es ilegible usa null. '
+                  'Devuelve SOLO JSON sin texto extra: '
+                  '{"fecha":"DD/MM/YYYY","sector":"Fimasa 3","piscinas":['
+                  '{"ps":"codigo",'
+                  '"oxigeno_00":num_o_null,"temp_00":num_o_null,'
+                  '"oxigeno_02":num_o_null,"temp_02":num_o_null,'
+                  '"oxigeno_am":num_o_null,"temp_am":num_o_null,'
+                  '"oxigeno_pm":num_o_null,"temp_pm":num_o_null}]}  '
+                  'Donde: oxigeno_00/temp_00=medicion 00:30, oxigeno_02/temp_02=medicion 02:30, '
+                  'oxigeno_am/temp_am=medicion 05:00, oxigeno_pm/temp_pm=medicion 16:00.')
+    else:
+        prompt = ('Eres un experto en acuicultura leyendo hojas de parámetros de piscinas camaroneras. '
+                  'Debes leer cada valor DOS VECES antes de confirmar. '
+                  'Rangos típicos: oxígeno 1.0-15.0 mg/L, temperatura 20.0-35.0°C. '
+                  'Distingue con cuidado: 3 vs 8, 1 vs 7, 5 vs 6, 0 vs 9, punto decimal vs coma. '
+                  'Si un valor es ilegible usa null. '
+                  'Devuelve SOLO JSON sin texto extra ni explicaciones: '
+                  '{"fecha":"DD/MM/YYYY","sector":"nombre","piscinas":['
+                  '{"ps":"codigo","oxigeno_am":num_o_null,"oxigeno_pm":num_o_null,'
+                  '"temp_am":num_o_null,"temp_pm":num_o_null}]}')
+
     payload = {
         "model": "claude-opus-4-6",
         "max_tokens": 2000,
         "messages": [{"role": "user", "content": [
             {"type": "image", "source": {"type": "base64", "media_type": mime, "data": imagen_b64}},
-            {"type": "text", "text": 'Eres un experto en acuicultura leyendo hojas de parámetros de piscinas camaroneras. Debes leer cada valor DOS VECES antes de confirmar. Proceso: 1) Lee todos los valores, 2) Vuelve a verificar cada valor leyendo dígito por dígito. Rangos típicos: oxígeno 1.0-15.0 mg/L (valores fuera de este rango son errores de lectura), temperatura 20.0-35.0 °C. Distingue con cuidado: 3 vs 8, 1 vs 7, 5 vs 6, 0 vs 9, punto decimal vs coma. Si un valor es ilegible usa null. Devuelve SOLO JSON sin texto extra ni explicaciones: {"fecha":"DD/MM/YYYY","sector":"nombre","piscinas":[{"ps":"codigo","oxigeno_am":num_o_null,"oxigeno_pm":num_o_null,"temp_am":num_o_null,"temp_pm":num_o_null}]}'}
+            {"type": "text", "text": prompt}
         ]}]
     }
     req = urllib.request.Request(
@@ -624,11 +646,21 @@ def evaluar_y_notificar(datos, campo_param):
     sector = datos.get("sector", campo_param)
     fecha  = datos.get("fecha", "")
     alertas = []
+
     for p in datos.get("piscinas", []):
-        eam = estado_o2(p.get("oxigeno_am"))
-        epm = estado_o2(p.get("oxigeno_pm"))
-        if eam != "normal" or epm != "normal":
-            alertas.append({**p, "estado_am": eam, "estado_pm": epm})
+        if sector == FIMASA3:
+            # Para Fimasa 3 evalúa 00:30, 02:30 y 05:00 (PM es solo dashboard)
+            e00 = estado_o2(p.get("oxigeno_00"))
+            e02 = estado_o2(p.get("oxigeno_02"))
+            eam = estado_o2(p.get("oxigeno_am"))
+            if e00 != "normal" or e02 != "normal" or eam != "normal":
+                alertas.append({**p, "estado_00": e00, "estado_02": e02, "estado_am": eam, "estado_pm": "normal"})
+        else:
+            eam = estado_o2(p.get("oxigeno_am"))
+            epm = estado_o2(p.get("oxigeno_pm"))
+            if eam != "normal" or epm != "normal":
+                alertas.append({**p, "estado_am": eam, "estado_pm": epm})
+
     if not alertas:
         print("Todas las piscinas en rango normal")
         return 0
@@ -653,11 +685,17 @@ def evaluar_y_notificar(datos, campo_param):
                 enviar_email_postmark(u["email"], u.get("nombre",""), asunto, cuerpo, html=html_body)
                 enviados += 1
         else:
-            criticos = [a for a in alertas if a["estado_am"]=="critico" or a["estado_pm"]=="critico"]
+            if sector == FIMASA3:
+                criticos = [a for a in alertas if a["estado_00"]=="critico" or a["estado_02"]=="critico" or a["estado_am"]=="critico"]
+            else:
+                criticos = [a for a in alertas if a["estado_am"]=="critico" or a["estado_pm"]=="critico"]
             nivel = "ALERTA CRITICA" if criticos else "VIGILANCIA"
             asunto = f"{'🔴' if criticos else '🟡'} {nivel} - {sector} - {fecha}"
             cuerpo = f"{nivel}\nSector: {sector} | Fecha: {fecha}\n"
-            html_body = construir_html_biologo(sector, alertas, datos.get("piscinas",[]), fecha)
+            if sector == FIMASA3:
+                html_body = construir_html_biologo_fimasa3(sector, alertas, datos.get("piscinas",[]), fecha)
+            else:
+                html_body = construir_html_biologo(sector, alertas, datos.get("piscinas",[]), fecha)
             enviar_email_postmark(u["email"], u.get("nombre",""), asunto, cuerpo, html=html_body)
             enviados += 1
 
@@ -742,6 +780,84 @@ def construir_html_biologo(sector, alertas_data, todas_piscinas, fecha):
     </div>"""
     return html
 
+def construir_html_biologo_fimasa3(sector, alertas_data, todas_piscinas, fecha):
+    """Email especial para Fimasa 3 con 3 mediciones de madrugada."""
+    criticos  = [p for p in alertas_data if p.get("estado_00")=="critico" or p.get("estado_02")=="critico" or p.get("estado_am")=="critico"]
+    vigilancia= [p for p in alertas_data if p not in criticos]
+    ps_alerta = {p["ps"] for p in alertas_data}
+    normales  = [p for p in todas_piscinas if p["ps"] not in ps_alerta]
+
+    nivel_color = "#dc2626" if criticos else "#d97706"
+    nivel_texto = "🔴 ALERTA CRÍTICA" if criticos else "🟡 VIGILANCIA"
+
+    def sort_ps(lst):
+        return sorted(lst, key=lambda x: (0,int(x["ps"])) if str(x["ps"]).isdigit() else (1,x["ps"]))
+
+    def tabla_fimasa(piscinas, titulo, bg):
+        if not piscinas: return ""
+        filas = ""
+        for p in sort_ps(piscinas):
+            filas += f"""<tr>
+              <td style='padding:6px 8px;font-weight:700;text-align:center'>{p['ps']}</td>
+              {celda_o2(p.get('oxigeno_00'))}{celda_temp(p.get('temp_00'))}
+              {celda_o2(p.get('oxigeno_02'))}{celda_temp(p.get('temp_02'))}
+              {celda_o2(p.get('oxigeno_am'))}{celda_temp(p.get('temp_am'))}
+            </tr>"""
+        return f"""<div style="margin-bottom:16px">
+          <div style="background:{bg};color:white;padding:10px 14px;border-radius:8px 8px 0 0;font-weight:700;font-size:14px">{titulo}</div>
+          <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-top:none">
+            <thead>
+              <tr style="background:#e0f2fe">
+                <th rowspan="2" style="padding:6px;text-align:center;font-size:11px;color:#374151;border-bottom:1px solid #e5e7eb;border-right:1px solid #e5e7eb">PS</th>
+                <th colspan="2" style="padding:6px;text-align:center;font-size:11px;color:#0369a1;border-bottom:1px solid #bae6fd;border-right:1px solid #e5e7eb">00:30</th>
+                <th colspan="2" style="padding:6px;text-align:center;font-size:11px;color:#0369a1;border-bottom:1px solid #bae6fd;border-right:1px solid #e5e7eb">02:30</th>
+                <th colspan="2" style="padding:6px;text-align:center;font-size:11px;color:#0369a1;border-bottom:1px solid #bae6fd">05:00</th>
+              </tr>
+              <tr style="background:#f0f9ff">
+                <th style="padding:5px;text-align:center;font-size:10px;color:#6b7280;border-bottom:1px solid #e5e7eb">O₂</th>
+                <th style="padding:5px;text-align:center;font-size:10px;color:#6b7280;border-bottom:1px solid #e5e7eb;border-right:1px solid #e5e7eb">T°</th>
+                <th style="padding:5px;text-align:center;font-size:10px;color:#6b7280;border-bottom:1px solid #e5e7eb">O₂</th>
+                <th style="padding:5px;text-align:center;font-size:10px;color:#6b7280;border-bottom:1px solid #e5e7eb;border-right:1px solid #e5e7eb">T°</th>
+                <th style="padding:5px;text-align:center;font-size:10px;color:#6b7280;border-bottom:1px solid #e5e7eb">O₂</th>
+                <th style="padding:5px;text-align:center;font-size:10px;color:#6b7280;border-bottom:1px solid #e5e7eb">T°</th>
+              </tr>
+            </thead><tbody>{filas}</tbody></table></div>"""
+
+    # Tabla de normales simplificada
+    def tabla_normales(piscinas):
+        if not piscinas: return ""
+        filas = ""
+        for p in sort_ps(piscinas):
+            filas += f"<tr><td style='padding:6px 10px;font-weight:700;text-align:center'>{p['ps']}</td>{celda_o2(p.get('oxigeno_am'))}{celda_temp(p.get('temp_am'))}</tr>"
+        return f"""<div style="margin-bottom:16px">
+          <div style="background:#16a34a;color:white;padding:10px 14px;border-radius:8px 8px 0 0;font-weight:700;font-size:14px">🟢 PISCINAS NORMALES</div>
+          <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-top:none">
+            <thead><tr style="background:#f9fafb">
+              <th style="padding:8px;text-align:center;font-size:12px;color:#6b7280;border-bottom:1px solid #e5e7eb">PISCINA</th>
+              <th style="padding:8px;text-align:center;font-size:12px;color:#6b7280;border-bottom:1px solid #e5e7eb">O₂ 05:00</th>
+              <th style="padding:8px;text-align:center;font-size:12px;color:#6b7280;border-bottom:1px solid #e5e7eb">T° 05:00</th>
+            </tr></thead><tbody>{filas}</tbody></table></div>"""
+
+    html = f"""<div style="font-family:Arial,sans-serif;max-width:650px;margin:0 auto">
+      <div style="background:{nivel_color};color:white;padding:20px;border-radius:12px 12px 0 0;text-align:center">
+        <h1 style="margin:0;font-size:22px">{nivel_texto}</h1>
+        <p style="margin:6px 0 0;font-size:14px;opacity:.9">{sector} — {fecha}</p>
+        <p style="margin:4px 0 0;font-size:12px;opacity:.8">Mediciones madrugada: 00:30 | 02:30 | 05:00</p>
+      </div>
+      <div style="background:white;padding:20px;border:1px solid #e5e7eb;border-top:none">
+        <div style="display:flex;gap:10px;margin-bottom:20px;text-align:center">
+          <div style="flex:1;background:#fef2f2;border-radius:8px;padding:12px"><div style="font-size:24px;font-weight:700;color:#dc2626">{len(criticos)}</div><div style="font-size:11px;color:#6b7280">Críticas</div></div>
+          <div style="flex:1;background:#fffbeb;border-radius:8px;padding:12px"><div style="font-size:24px;font-weight:700;color:#d97706">{len(vigilancia)}</div><div style="font-size:11px;color:#6b7280">Vigilancia</div></div>
+          <div style="flex:1;background:#f0fdf4;border-radius:8px;padding:12px"><div style="font-size:24px;font-weight:700;color:#16a34a">{len(normales)}</div><div style="font-size:11px;color:#6b7280">Normales</div></div>
+        </div>
+        {tabla_fimasa(criticos, "🔴 PISCINAS CRÍTICAS — O₂ menor a 2.9 mg/L", "#dc2626")}
+        {tabla_fimasa(vigilancia, "🟡 PISCINAS EN VIGILANCIA — O₂ entre 2.9 y 3.5 mg/L", "#d97706")}
+        {tabla_normales(normales)}
+      </div>
+      <div style="background:#f9fafb;padding:10px;text-align:center;font-size:11px;color:#9ca3af;border-radius:0 0 12px 12px;border:1px solid #e5e7eb;border-top:none">Sistema de Alertas Camaronera Recorcholis S.A.</div>
+    </div>"""
+    return html
+
 def construir_html_gerencia_consolidado(fecha):
     campos_info = []
     total_criticos = 0
@@ -750,12 +866,18 @@ def construir_html_gerencia_consolidado(fecha):
     for campo in CAMPOS:
         piscinas_data = get_resumen_campo(campo, dias=4)
         if not piscinas_data: continue
-        alertas  = [p for p in piscinas_data if
-                    (p["ultimo"].get("oxigeno_am") is not None and p["ultimo"]["oxigeno_am"] < O2_VIGILANCIA) or
-                    (p["ultimo"].get("oxigeno_pm") is not None and p["ultimo"]["oxigeno_pm"] < O2_VIGILANCIA)]
-        criticos = [p for p in alertas if
-                    (p["ultimo"].get("oxigeno_am") is not None and p["ultimo"]["oxigeno_am"] < O2_CRITICO) or
-                    (p["ultimo"].get("oxigeno_pm") is not None and p["ultimo"]["oxigeno_pm"] < O2_CRITICO)]
+
+        if campo == FIMASA3:
+            alertas  = [p for p in piscinas_data if tiene_alerta_fimasa3(p["ultimo"])]
+            criticos = [p for p in alertas if tiene_critico_fimasa3(p["ultimo"])]
+        else:
+            alertas  = [p for p in piscinas_data if
+                        (p["ultimo"].get("oxigeno_am") is not None and p["ultimo"]["oxigeno_am"] < O2_VIGILANCIA) or
+                        (p["ultimo"].get("oxigeno_pm") is not None and p["ultimo"]["oxigeno_pm"] < O2_VIGILANCIA)]
+            criticos = [p for p in alertas if
+                        (p["ultimo"].get("oxigeno_am") is not None and p["ultimo"]["oxigeno_am"] < O2_CRITICO) or
+                        (p["ultimo"].get("oxigeno_pm") is not None and p["ultimo"]["oxigeno_pm"] < O2_CRITICO)]
+
         if alertas:
             campos_info.append({"campo":campo,"piscinas":piscinas_data,"alertas":alertas,"criticos":criticos})
             total_criticos  += len(criticos)
@@ -772,30 +894,66 @@ def construir_html_gerencia_consolidado(fecha):
         o2am_v = [p["ultimo"]["oxigeno_am"] for p in info["piscinas"] if p["ultimo"].get("oxigeno_am") is not None]
         prom   = round(sum(o2am_v)/len(o2am_v),2) if o2am_v else "—"
         campo_color = "#dc2626" if info["criticos"] else "#d97706"
+        campo = info["campo"]
 
         def sort_ps(lst):
             return sorted(lst, key=lambda x: (0,int(x["piscina"])) if str(x["piscina"]).isdigit() else (1,x["piscina"]))
 
         filas = ""
-        for p in sort_ps(info["piscinas"]):
-            u = p["ultimo"]
-            if not u: continue
-            hist = " → ".join([f"{h['fecha']}: {h.get('oxigeno_am','—')}" for h in p["historial"][:-1]]) if len(p["historial"])>1 else "—"
-            filas += f"<tr><td style='padding:6px 10px;font-weight:700;text-align:center'>{p['piscina']}</td>{celda_o2(u.get('oxigeno_am'))}{celda_o2(u.get('oxigeno_pm'))}{celda_temp(u.get('temp_am'))}{celda_temp(u.get('temp_pm'))}<td style='padding:6px 8px;font-size:11px;color:#6b7280'>{hist}</td></tr>"
-
-        secciones += f"""<div style="margin-bottom:24px">
-          <div style="background:{campo_color};color:white;padding:10px 14px;border-radius:8px 8px 0 0;font-weight:700">
-            📍 {info['campo']} — {len(info['alertas'])} alertas | {len(info['criticos'])} críticas | O₂ AM prom: {prom} mg/L
-          </div>
-          <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-top:none">
-            <thead><tr style="background:#f9fafb">
-              <th style="padding:8px;text-align:center;font-size:11px;color:#6b7280;border-bottom:1px solid #e5e7eb">PS</th>
-              <th style="padding:8px;text-align:center;font-size:11px;color:#6b7280;border-bottom:1px solid #e5e7eb">O₂ AM</th>
-              <th style="padding:8px;text-align:center;font-size:11px;color:#6b7280;border-bottom:1px solid #e5e7eb">O₂ PM</th>
-              <th style="padding:8px;text-align:center;font-size:11px;color:#6b7280;border-bottom:1px solid #e5e7eb">T° AM</th>
-              <th style="padding:8px;text-align:center;font-size:11px;color:#6b7280;border-bottom:1px solid #e5e7eb">T° PM</th>
-              <th style="padding:8px;text-align:center;font-size:11px;color:#6b7280;border-bottom:1px solid #e5e7eb">Últimos 3 días O₂ AM</th>
-            </tr></thead><tbody>{filas}</tbody></table></div>"""
+        if campo == FIMASA3:
+            # Tabla especial Fimasa 3 con 4 mediciones
+            for p in sort_ps(info["piscinas"]):
+                u = p["ultimo"]
+                if not u: continue
+                hist = " → ".join([f"{h['fecha']}: {h.get('oxigeno_am','—')}" for h in p["historial"][:-1]]) if len(p["historial"])>1 else "—"
+                filas += f"""<tr>
+                  <td style='padding:6px 8px;font-weight:700;text-align:center'>{p['piscina']}</td>
+                  {celda_o2(u.get('oxigeno_00'))}{celda_temp(u.get('temp_00'))}
+                  {celda_o2(u.get('oxigeno_02'))}{celda_temp(u.get('temp_02'))}
+                  {celda_o2(u.get('oxigeno_am'))}{celda_temp(u.get('temp_am'))}
+                  {celda_o2(u.get('oxigeno_pm'))}{celda_temp(u.get('temp_pm'))}
+                  <td style='padding:6px 8px;font-size:11px;color:#6b7280'>{hist}</td>
+                </tr>"""
+            secciones += f"""<div style="margin-bottom:24px">
+              <div style="background:{campo_color};color:white;padding:10px 14px;border-radius:8px 8px 0 0;font-weight:700">
+                📍 {campo} — {len(info['alertas'])} alertas | {len(info['criticos'])} críticas | O₂ 05:00 prom: {prom} mg/L
+              </div>
+              <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-top:none">
+                <thead>
+                  <tr style="background:#e0f2fe">
+                    <th rowspan="2" style="padding:6px;text-align:center;font-size:10px;color:#374151;border-bottom:1px solid #e5e7eb">PS</th>
+                    <th colspan="2" style="padding:5px;text-align:center;font-size:10px;color:#0369a1;border-bottom:1px solid #bae6fd">00:30</th>
+                    <th colspan="2" style="padding:5px;text-align:center;font-size:10px;color:#0369a1;border-bottom:1px solid #bae6fd">02:30</th>
+                    <th colspan="2" style="padding:5px;text-align:center;font-size:10px;color:#0369a1;border-bottom:1px solid #bae6fd">05:00</th>
+                    <th colspan="2" style="padding:5px;text-align:center;font-size:10px;color:#7c3aed;border-bottom:1px solid #ede9fe">16:00</th>
+                    <th rowspan="2" style="padding:6px;text-align:center;font-size:10px;color:#6b7280;border-bottom:1px solid #e5e7eb">Hist.</th>
+                  </tr>
+                  <tr style="background:#f0f9ff">
+                    <th style="padding:4px;text-align:center;font-size:9px;color:#6b7280;border-bottom:1px solid #e5e7eb">O₂</th><th style="padding:4px;text-align:center;font-size:9px;color:#6b7280;border-bottom:1px solid #e5e7eb">T°</th>
+                    <th style="padding:4px;text-align:center;font-size:9px;color:#6b7280;border-bottom:1px solid #e5e7eb">O₂</th><th style="padding:4px;text-align:center;font-size:9px;color:#6b7280;border-bottom:1px solid #e5e7eb">T°</th>
+                    <th style="padding:4px;text-align:center;font-size:9px;color:#6b7280;border-bottom:1px solid #e5e7eb">O₂</th><th style="padding:4px;text-align:center;font-size:9px;color:#6b7280;border-bottom:1px solid #e5e7eb">T°</th>
+                    <th style="padding:4px;text-align:center;font-size:9px;color:#6b7280;border-bottom:1px solid #e5e7eb">O₂</th><th style="padding:4px;text-align:center;font-size:9px;color:#6b7280;border-bottom:1px solid #e5e7eb">T°</th>
+                  </tr>
+                </thead><tbody>{filas}</tbody></table></div>"""
+        else:
+            for p in sort_ps(info["piscinas"]):
+                u = p["ultimo"]
+                if not u: continue
+                hist = " → ".join([f"{h['fecha']}: {h.get('oxigeno_am','—')}" for h in p["historial"][:-1]]) if len(p["historial"])>1 else "—"
+                filas += f"<tr><td style='padding:6px 10px;font-weight:700;text-align:center'>{p['piscina']}</td>{celda_o2(u.get('oxigeno_am'))}{celda_o2(u.get('oxigeno_pm'))}{celda_temp(u.get('temp_am'))}{celda_temp(u.get('temp_pm'))}<td style='padding:6px 8px;font-size:11px;color:#6b7280'>{hist}</td></tr>"
+            secciones += f"""<div style="margin-bottom:24px">
+              <div style="background:{campo_color};color:white;padding:10px 14px;border-radius:8px 8px 0 0;font-weight:700">
+                📍 {campo} — {len(info['alertas'])} alertas | {len(info['criticos'])} críticas | O₂ AM prom: {prom} mg/L
+              </div>
+              <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-top:none">
+                <thead><tr style="background:#f9fafb">
+                  <th style="padding:8px;text-align:center;font-size:11px;color:#6b7280;border-bottom:1px solid #e5e7eb">PS</th>
+                  <th style="padding:8px;text-align:center;font-size:11px;color:#6b7280;border-bottom:1px solid #e5e7eb">O₂ AM</th>
+                  <th style="padding:8px;text-align:center;font-size:11px;color:#6b7280;border-bottom:1px solid #e5e7eb">O₂ PM</th>
+                  <th style="padding:8px;text-align:center;font-size:11px;color:#6b7280;border-bottom:1px solid #e5e7eb">T° AM</th>
+                  <th style="padding:8px;text-align:center;font-size:11px;color:#6b7280;border-bottom:1px solid #e5e7eb">T° PM</th>
+                  <th style="padding:8px;text-align:center;font-size:11px;color:#6b7280;border-bottom:1px solid #e5e7eb">Últimos 3 días O₂ AM</th>
+                </tr></thead><tbody>{filas}</tbody></table></div>"""
 
     html = f"""<div style="font-family:Arial,sans-serif;max-width:700px;margin:0 auto">
       <div style="background:{nivel_color};color:white;padding:20px;border-radius:12px 12px 0 0;text-align:center">
