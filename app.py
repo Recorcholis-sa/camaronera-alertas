@@ -295,21 +295,30 @@ def procesar():
 
 @app.route("/api/resumen-diario", methods=["GET", "POST"])
 def resumen_diario():
+    """Endpoint para el cron job de resumen diario a las 6 AM Ecuador.
+       Siempre envía aunque todas las piscinas estén en rango normal."""
     try:
         print("Enviando resumen diario...")
         fecha_hoy = (datetime.utcnow() - timedelta(hours=5)).strftime("%d/%m/%Y")
         usuarios = leer_usuarios()
         enviados = 0
+
         for u in usuarios:
             if not u.get("email"):
                 continue
             rol = u.get("rol", "biologo")
+
             if rol == "gerencia":
+                # Gerencia siempre recibe consolidado
                 asunto, cuerpo, html_body = construir_html_gerencia_consolidado(fecha_hoy)
+                if not asunto:
+                    # Si no hay alertas, construir resumen normal de todos los campos
+                    asunto, cuerpo, html_body = construir_html_gerencia_todo(fecha_hoy)
                 if asunto:
                     enviar_email_postmark(u["email"], u.get("nombre",""), asunto, cuerpo, html=html_body)
                     enviados += 1
             else:
+                # Biólogos siempre reciben resumen de sus campos
                 for campo in u.get("campos", []):
                     piscinas_data = get_resumen_campo(campo, dias=4)
                     if not piscinas_data:
@@ -329,21 +338,32 @@ def resumen_diario():
                             epm = estado_o2(u2.get("oxigeno_pm"))
                             if eam != "normal" or epm != "normal":
                                 alertas.append({"ps": p["piscina"], "estado_am": eam, "estado_pm": epm, **u2})
-                    if not alertas:
-                        continue
+
                     if campo == FIMASA3:
                         criticos = [a for a in alertas if a["estado_00"]=="critico" or a["estado_02"]=="critico" or a["estado_am"]=="critico"]
                     else:
                         criticos = [a for a in alertas if a["estado_am"]=="critico" or a["estado_pm"]=="critico"]
-                    nivel = "ALERTA CRITICA" if criticos else "VIGILANCIA"
-                    asunto = f"{'🔴' if criticos else '🟡'} {nivel} - {campo} - {fecha_hoy}"
-                    cuerpo = f"{nivel}\nSector: {campo} | Fecha: {fecha_hoy}"
-                    if campo == FIMASA3:
-                        html_body = construir_html_biologo_fimasa3(campo, alertas, todas, fecha_hoy)
+
+                    if alertas:
+                        nivel = "ALERTA CRITICA" if criticos else "VIGILANCIA"
+                        asunto = f"{'🔴' if criticos else '🟡'} {nivel} - {campo} - {fecha_hoy}"
+                        cuerpo = f"{nivel}\nSector: {campo} | Fecha: {fecha_hoy}"
+                        if campo == FIMASA3:
+                            html_body = construir_html_biologo_fimasa3(campo, alertas, todas, fecha_hoy)
+                        else:
+                            html_body = construir_html_biologo(campo, alertas, todas, fecha_hoy)
                     else:
-                        html_body = construir_html_biologo(campo, alertas, todas, fecha_hoy)
+                        # Todo normal — enviar resumen verde
+                        asunto = f"🟢 TODO NORMAL - {campo} - {fecha_hoy}"
+                        cuerpo = f"RESUMEN DIARIO\nSector: {campo} | Fecha: {fecha_hoy}\nTodas las piscinas en rango normal."
+                        if campo == FIMASA3:
+                            html_body = construir_html_biologo_fimasa3(campo, [], todas, fecha_hoy)
+                        else:
+                            html_body = construir_html_biologo_normal(campo, todas, fecha_hoy)
+
                     enviar_email_postmark(u["email"], u.get("nombre",""), asunto, cuerpo, html=html_body)
                     enviados += 1
+
         print(f"Resumen diario enviado: {enviados} emails")
         return jsonify({"ok": True, "enviados": enviados, "fecha": fecha_hoy})
     except Exception as e:
@@ -646,13 +666,59 @@ def construir_html_biologo(sector, alertas_data, todas_piscinas, fecha):
     </div>"""
     return html
 
+def construir_html_biologo_normal(sector, todas_piscinas, fecha):
+    """Email resumen cuando todo está normal — sin alertas."""
+    def sort_ps(lst):
+        return sorted(lst, key=lambda x: (0,int(x["ps"])) if str(x["ps"]).isdigit() else (1,x["ps"]))
+
+    filas = ""
+    for p in sort_ps(todas_piscinas):
+        filas += f"<tr><td style='padding:6px 10px;font-weight:700;text-align:center'>{p['ps']}</td>{celda_o2(p.get('oxigeno_am'))}{celda_o2(p.get('oxigeno_pm'))}{celda_temp(p.get('temp_am'))}{celda_temp(p.get('temp_pm'))}</tr>"
+
+    o2am_v = [p.get("oxigeno_am") for p in todas_piscinas if p.get("oxigeno_am") is not None]
+    o2pm_v = [p.get("oxigeno_pm") for p in todas_piscinas if p.get("oxigeno_pm") is not None]
+    tam_v  = [p.get("temp_am") for p in todas_piscinas if p.get("temp_am") is not None]
+    prom_o2am = round(sum(o2am_v)/len(o2am_v),2) if o2am_v else "—"
+    prom_o2pm = round(sum(o2pm_v)/len(o2pm_v),2) if o2pm_v else "—"
+    prom_tam  = round(sum(tam_v)/len(tam_v),1) if tam_v else "—"
+
+    html = f"""<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
+      <div style="background:#16a34a;color:white;padding:20px;border-radius:12px 12px 0 0;text-align:center">
+        <h1 style="margin:0;font-size:22px">🟢 RESUMEN DIARIO — TODO NORMAL</h1>
+        <p style="margin:6px 0 0;font-size:14px;opacity:.9">{sector} — {fecha}</p>
+      </div>
+      <div style="background:white;padding:20px;border:1px solid #e5e7eb;border-top:none">
+        <p style="font-size:13px;color:#6b7280;margin-bottom:16px;text-align:center">✅ Todas las piscinas en rango normal</p>
+        <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb">
+          <thead><tr style="background:#f9fafb">
+            <th style="padding:8px;text-align:center;font-size:12px;color:#6b7280;border-bottom:1px solid #e5e7eb">PISCINA</th>
+            <th style="padding:8px;text-align:center;font-size:12px;color:#6b7280;border-bottom:1px solid #e5e7eb">O₂ AM</th>
+            <th style="padding:8px;text-align:center;font-size:12px;color:#6b7280;border-bottom:1px solid #e5e7eb">O₂ PM</th>
+            <th style="padding:8px;text-align:center;font-size:12px;color:#6b7280;border-bottom:1px solid #e5e7eb">T° AM</th>
+            <th style="padding:8px;text-align:center;font-size:12px;color:#6b7280;border-bottom:1px solid #e5e7eb">T° PM</th>
+          </tr></thead><tbody>{filas}</tbody></table>
+        <div style="background:#f9fafb;border-radius:8px;padding:14px;margin-top:16px">
+          <div style="font-weight:700;color:#374151;margin-bottom:8px">📊 PROMEDIOS DEL CAMPO</div>
+          <table style="width:100%;text-align:center">
+            <tr>
+              <td style="padding:4px"><div style="font-size:18px;font-weight:700;color:#1D9E75">{prom_o2am}</div><div style="font-size:11px;color:#6b7280">O₂ AM mg/L</div></td>
+              <td style="padding:4px"><div style="font-size:18px;font-weight:700;color:#0F6E56">{prom_o2pm}</div><div style="font-size:11px;color:#6b7280">O₂ PM mg/L</div></td>
+              <td style="padding:4px"><div style="font-size:18px;font-weight:700;color:#f59e0b">{prom_tam}</div><div style="font-size:11px;color:#6b7280">T° AM °C</div></td>
+            </tr>
+          </table>
+        </div>
+      </div>
+      <div style="background:#f9fafb;padding:10px;text-align:center;font-size:11px;color:#9ca3af;border-radius:0 0 12px 12px;border:1px solid #e5e7eb;border-top:none">Sistema de Alertas Camaronera Recorcholis S.A.</div>
+    </div>"""
+    return html
+
 def construir_html_biologo_fimasa3(sector, alertas_data, todas_piscinas, fecha):
     criticos  = [p for p in alertas_data if p.get("estado_00")=="critico" or p.get("estado_02")=="critico" or p.get("estado_am")=="critico"]
     vigilancia= [p for p in alertas_data if p not in criticos]
     ps_alerta = {p["ps"] for p in alertas_data}
     normales  = [p for p in todas_piscinas if p["ps"] not in ps_alerta]
-    nivel_color = "#dc2626" if criticos else "#d97706"
-    nivel_texto = "🔴 ALERTA CRÍTICA" if criticos else "🟡 VIGILANCIA"
+    nivel_color = "#16a34a" if not alertas_data else ("#dc2626" if criticos else "#d97706")
+    nivel_texto = "🟢 RESUMEN DIARIO" if not alertas_data else ("🔴 ALERTA CRÍTICA" if criticos else "🟡 VIGILANCIA")
 
     def sort_ps(lst):
         return sorted(lst, key=lambda x: (0,int(x["ps"])) if str(x["ps"]).isdigit() else (1,x["ps"]))
@@ -687,19 +753,35 @@ def construir_html_biologo_fimasa3(sector, alertas_data, todas_piscinas, fecha):
               </tr>
             </thead><tbody>{filas}</tbody></table></div>"""
 
-    def tabla_normales(piscinas):
+    def tabla_normales_fimasa(piscinas):
         if not piscinas: return ""
         filas = ""
         for p in sort_ps(piscinas):
-            filas += f"<tr><td style='padding:6px 10px;font-weight:700;text-align:center'>{p['ps']}</td>{celda_o2(p.get('oxigeno_am'))}{celda_temp(p.get('temp_am'))}</tr>"
+            filas += f"""<tr>
+              <td style='padding:6px 8px;font-weight:700;text-align:center'>{p['ps']}</td>
+              {celda_o2(p.get('oxigeno_00'))}{celda_temp(p.get('temp_00'))}
+              {celda_o2(p.get('oxigeno_02'))}{celda_temp(p.get('temp_02'))}
+              {celda_o2(p.get('oxigeno_am'))}{celda_temp(p.get('temp_am'))}
+            </tr>"""
         return f"""<div style="margin-bottom:16px">
           <div style="background:#16a34a;color:white;padding:10px 14px;border-radius:8px 8px 0 0;font-weight:700;font-size:14px">🟢 PISCINAS NORMALES</div>
           <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-top:none">
-            <thead><tr style="background:#f9fafb">
-              <th style="padding:8px;text-align:center;font-size:12px;color:#6b7280;border-bottom:1px solid #e5e7eb">PISCINA</th>
-              <th style="padding:8px;text-align:center;font-size:12px;color:#6b7280;border-bottom:1px solid #e5e7eb">O₂ 05:00</th>
-              <th style="padding:8px;text-align:center;font-size:12px;color:#6b7280;border-bottom:1px solid #e5e7eb">T° 05:00</th>
-            </tr></thead><tbody>{filas}</tbody></table></div>"""
+            <thead>
+              <tr style="background:#e0f2fe">
+                <th rowspan="2" style="padding:6px;text-align:center;font-size:11px;color:#374151;border-bottom:1px solid #e5e7eb">PS</th>
+                <th colspan="2" style="padding:6px;text-align:center;font-size:11px;color:#0369a1;border-bottom:1px solid #bae6fd">00:30</th>
+                <th colspan="2" style="padding:6px;text-align:center;font-size:11px;color:#0369a1;border-bottom:1px solid #bae6fd">02:30</th>
+                <th colspan="2" style="padding:6px;text-align:center;font-size:11px;color:#0369a1;border-bottom:1px solid #bae6fd">05:00</th>
+              </tr>
+              <tr style="background:#f0f9ff">
+                <th style="padding:5px;text-align:center;font-size:10px;color:#6b7280;border-bottom:1px solid #e5e7eb">O₂</th>
+                <th style="padding:5px;text-align:center;font-size:10px;color:#6b7280;border-bottom:1px solid #e5e7eb">T°</th>
+                <th style="padding:5px;text-align:center;font-size:10px;color:#6b7280;border-bottom:1px solid #e5e7eb">O₂</th>
+                <th style="padding:5px;text-align:center;font-size:10px;color:#6b7280;border-bottom:1px solid #e5e7eb">T°</th>
+                <th style="padding:5px;text-align:center;font-size:10px;color:#6b7280;border-bottom:1px solid #e5e7eb">O₂</th>
+                <th style="padding:5px;text-align:center;font-size:10px;color:#6b7280;border-bottom:1px solid #e5e7eb">T°</th>
+              </tr>
+            </thead><tbody>{filas}</tbody></table></div>"""
 
     html = f"""<div style="font-family:Arial,sans-serif;max-width:650px;margin:0 auto">
       <div style="background:{nivel_color};color:white;padding:20px;border-radius:12px 12px 0 0;text-align:center">
@@ -713,13 +795,59 @@ def construir_html_biologo_fimasa3(sector, alertas_data, todas_piscinas, fecha):
           <div style="flex:1;background:#fffbeb;border-radius:8px;padding:12px"><div style="font-size:24px;font-weight:700;color:#d97706">{len(vigilancia)}</div><div style="font-size:11px;color:#6b7280">Vigilancia</div></div>
           <div style="flex:1;background:#f0fdf4;border-radius:8px;padding:12px"><div style="font-size:24px;font-weight:700;color:#16a34a">{len(normales)}</div><div style="font-size:11px;color:#6b7280">Normales</div></div>
         </div>
-        {tabla_fimasa(criticos, "🔴 PISCINAS CRÍTICAS — O₂ menor a 2.9 mg/L", "#dc2626")}
-        {tabla_fimasa(vigilancia, "🟡 PISCINAS EN VIGILANCIA — O₂ entre 2.9 y 3.5 mg/L", "#d97706")}
-        {tabla_normales(normales)}
+        {tabla_fimasa(criticos, "🔴 PISCINAS CRÍTICAS — O₂ menor a 2.9 mg/L", "#dc2626") if criticos else ""}
+        {tabla_fimasa(vigilancia, "🟡 PISCINAS EN VIGILANCIA — O₂ entre 2.9 y 3.5 mg/L", "#d97706") if vigilancia else ""}
+        {tabla_normales_fimasa(normales) if normales else ""}
       </div>
       <div style="background:#f9fafb;padding:10px;text-align:center;font-size:11px;color:#9ca3af;border-radius:0 0 12px 12px;border:1px solid #e5e7eb;border-top:none">Sistema de Alertas Camaronera Recorcholis S.A.</div>
     </div>"""
     return html
+
+def construir_html_gerencia_todo(fecha):
+    """Email resumen para gerencia cuando no hay alertas — muestra todos los campos."""
+    secciones = ""
+    for campo in CAMPOS:
+        piscinas_data = get_resumen_campo(campo, dias=1)
+        if not piscinas_data: continue
+
+        def sort_ps(lst):
+            return sorted(lst, key=lambda x: (0,int(x["piscina"])) if str(x["piscina"]).isdigit() else (1,x["piscina"]))
+
+        filas = ""
+        for p in sort_ps(piscinas_data):
+            u = p["ultimo"]
+            if not u: continue
+            filas += f"<tr><td style='padding:6px 10px;font-weight:700;text-align:center'>{p['piscina']}</td>{celda_o2(u.get('oxigeno_am'))}{celda_o2(u.get('oxigeno_pm'))}{celda_temp(u.get('temp_am'))}{celda_temp(u.get('temp_pm'))}</tr>"
+
+        if filas:
+            secciones += f"""<div style="margin-bottom:20px">
+              <div style="background:#16a34a;color:white;padding:8px 14px;border-radius:8px 8px 0 0;font-weight:700;font-size:13px">📍 {campo}</div>
+              <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-top:none">
+                <thead><tr style="background:#f9fafb">
+                  <th style="padding:6px;text-align:center;font-size:11px;color:#6b7280;border-bottom:1px solid #e5e7eb">PS</th>
+                  <th style="padding:6px;text-align:center;font-size:11px;color:#6b7280;border-bottom:1px solid #e5e7eb">O₂ AM</th>
+                  <th style="padding:6px;text-align:center;font-size:11px;color:#6b7280;border-bottom:1px solid #e5e7eb">O₂ PM</th>
+                  <th style="padding:6px;text-align:center;font-size:11px;color:#6b7280;border-bottom:1px solid #e5e7eb">T° AM</th>
+                  <th style="padding:6px;text-align:center;font-size:11px;color:#6b7280;border-bottom:1px solid #e5e7eb">T° PM</th>
+                </tr></thead><tbody>{filas}</tbody></table></div>"""
+
+    if not secciones:
+        return None, None, None
+
+    html = f"""<div style="font-family:Arial,sans-serif;max-width:700px;margin:0 auto">
+      <div style="background:#16a34a;color:white;padding:20px;border-radius:12px 12px 0 0;text-align:center">
+        <h1 style="margin:0;font-size:22px">🟢 RESUMEN DIARIO — TODO NORMAL</h1>
+        <p style="margin:6px 0 0;font-size:14px;opacity:.9">Fecha: {fecha}</p>
+      </div>
+      <div style="background:white;padding:20px;border:1px solid #e5e7eb;border-top:none">
+        <p style="font-size:13px;color:#6b7280;margin-bottom:20px;text-align:center">✅ Todas las piscinas reportadas en rango normal</p>
+        {secciones}
+      </div>
+      <div style="background:#f9fafb;padding:10px;text-align:center;font-size:11px;color:#9ca3af;border-radius:0 0 12px 12px;border:1px solid #e5e7eb;border-top:none">Sistema de Alertas Camaronera Recorcholis S.A.</div>
+    </div>"""
+    asunto = f"🟢 RESUMEN DIARIO — Todo Normal — {fecha}"
+    cuerpo = f"RESUMEN DIARIO\nFecha: {fecha}\nTodas las piscinas en rango normal."
+    return asunto, cuerpo, html
 
 def construir_html_gerencia_consolidado(fecha):
     campos_info = []
