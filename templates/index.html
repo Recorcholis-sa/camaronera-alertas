@@ -106,6 +106,12 @@ td{padding:8px;border-bottom:1px solid #f3f4f6;color:#111}
 .foto-source-btn:hover{border-color:#1D9E75;background:#f0fdf8}
 .foto-source-icon{font-size:32px}
 .foto-source-label{font-size:13px;font-weight:600;color:#374151}
+/* Secciones resumen */
+.seccion-titulo{font-weight:700;font-size:13px;padding:8px 12px;border-radius:8px 8px 0 0;color:white;margin-top:12px}
+.prom-box{background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:10px 14px;margin-top:4px;margin-bottom:8px;display:flex;gap:16px;flex-wrap:wrap}
+.prom-item{text-align:center;flex:1;min-width:60px}
+.prom-val{font-size:16px;font-weight:700;color:#0F6E56}
+.prom-lbl{font-size:10px;color:#6b7280}
 </style>
 </head>
 <body>
@@ -317,64 +323,81 @@ function renderDashboard(resumen, fecha) {
         <div style="font-size:11px;color:#6b7280">🟢 Normal</div>
       </div>
     </div>
-    <p style="font-size:12px;color:#6b7280;margin-bottom:10px">Toca un campo para ver el detalle de piscinas →</p>
+    <p style="font-size:12px;color:#6b7280;margin-bottom:10px">Toca un campo para ver el detalle →</p>
   `;
 
   resumen.forEach(c => {
     const cls = c.criticos > 0 ? 'critico' : c.alertas > 0 ? 'vigilancia' : 'normal';
     const icon = c.criticos > 0 ? '🔴' : c.alertas > 0 ? '🟡' : '🟢';
     const sinDatos = !c.ultima_fecha;
+
     html += `<div class="campo-card ${sinDatos?'':''+cls}" onclick="verResumenCampoDesdeGerencia('${c.campo}')">
       <div class="campo-card-header">
         <span class="campo-card-nombre">${icon} ${c.campo}</span>
         <span class="campo-card-fecha">${c.ultima_fecha || 'Sin datos'}</span>
       </div>`;
+
     if (!sinDatos) {
-      const promLabel = c.campo === FIMASA3 ? 'O₂ 05:00 promedio' : 'O₂ AM promedio';
       html += `<div class="campo-stats">
         <span class="stat-pill rc">${c.criticos} crítico</span>
         <span class="stat-pill ry">${c.alertas - c.criticos} vigilancia</span>
         <span class="stat-pill rg">${c.total - c.alertas} normal</span>
-      </div>
-      <div class="campo-prom">${promLabel}: <strong>${c.prom_o2_am ?? '—'} mg/L</strong></div>`;
+      </div>`;
 
-      // Para Fimasa 3 mostrar alertas con las mediciones de madrugada
-      if (c.campo === FIMASA3) {
-        const pisAlertas = c.piscinas.filter(p =>
-          (p.ultimo?.oxigeno_00 != null && p.ultimo.oxigeno_00 < 3.5) ||
-          (p.ultimo?.oxigeno_02 != null && p.ultimo.oxigeno_02 < 3.5) ||
-          (p.ultimo?.oxigeno_am != null && p.ultimo.oxigeno_am < 3.5)
-        );
-        if (pisAlertas.length) {
-          html += `<div style="margin-top:8px;font-size:12px">`;
-          pisAlertas.forEach(p => {
-            const vals = [p.ultimo?.oxigeno_00, p.ultimo?.oxigeno_02, p.ultimo?.oxigeno_am].filter(v=>v!=null);
-            const minVal = vals.length ? Math.min(...vals) : null;
-            const e = minVal != null && minVal < 2.9 ? '🔴' : '🟡';
-            html += `<div style="padding:4px 0;border-bottom:1px solid #f3f4f6">
-              ${e} <strong>Ps ${p.piscina}</strong>: 00:30=${p.ultimo?.oxigeno_00??'—'} 02:30=${p.ultimo?.oxigeno_02??'—'} 05:00=${p.ultimo?.oxigeno_am??'—'}
-            </div>`;
-          });
-          html += `</div>`;
-        }
-      } else {
-        const pisAlertas = c.piscinas.filter(p =>
-          (p.ultimo?.oxigeno_am != null && p.ultimo.oxigeno_am < 3.5) ||
-          (p.ultimo?.oxigeno_pm != null && p.ultimo.oxigeno_pm < 3.5)
-        );
-        if (pisAlertas.length) {
-          html += `<div style="margin-top:8px;font-size:12px">`;
-          pisAlertas.forEach(p => {
-            const o2am = p.ultimo?.oxigeno_am;
-            const e = o2am != null && o2am < 2.9 ? '🔴' : '🟡';
-            const hist = p.historial.slice(0,-1).map(h => `${h.fecha}: ${h.oxigeno_am??'—'}`).join(' | ');
-            html += `<div style="padding:4px 0;border-bottom:1px solid #f3f4f6">
-              ${e} <strong>Ps ${p.piscina}</strong>: O₂AM=${o2am??'—'} O₂PM=${p.ultimo?.oxigeno_pm??'—'}
-              ${hist ? `<div class="hist-mini">Ant: ${hist}</div>` : ''}
-            </div>`;
-          });
-          html += `</div>`;
-        }
+      // Promedios piscinas
+      if (c.prom_o2_am != null || c.prom_o2_pm != null) {
+        html += `<div class="prom-box">
+          <div class="prom-item"><div class="prom-val">${c.prom_o2_am ?? '—'}</div><div class="prom-lbl">O₂ AM mg/L</div></div>
+          <div class="prom-item"><div class="prom-val">${c.prom_o2_pm ?? '—'}</div><div class="prom-lbl">O₂ PM mg/L</div></div>
+        </div>`;
+      }
+
+      // Piscinas con alerta
+      const soloPs = c.piscinas.filter(p => (p.tipo||'piscina') === 'piscina');
+      const prPs   = c.piscinas.filter(p => (p.tipo||'piscina') === 'precria');
+      const resPs  = c.piscinas.filter(p => (p.tipo||'piscina') === 'reservorio');
+
+      const pisAlertas = soloPs.filter(p =>
+        (p.ultimo?.oxigeno_am != null && p.ultimo.oxigeno_am < 3.5) ||
+        (p.ultimo?.oxigeno_pm != null && p.ultimo.oxigeno_pm < 3.5)
+      );
+      if (pisAlertas.length) {
+        html += `<div style="margin-top:6px;font-size:12px">`;
+        pisAlertas.forEach(p => {
+          const o2am = p.ultimo?.oxigeno_am;
+          const e = o2am != null && o2am < 2.9 ? '🔴' : '🟡';
+          const hist = p.historial.slice(0,-1).map(h => `${h.fecha}: ${h.oxigeno_am??'—'}`).join(' | ');
+          html += `<div style="padding:3px 0;border-bottom:1px solid #f3f4f6">
+            ${e} <strong>Ps ${p.piscina}</strong>: AM=${o2am??'—'} PM=${p.ultimo?.oxigeno_pm??'—'}
+            ${hist ? `<div class="hist-mini">Ant: ${hist}</div>` : ''}
+          </div>`;
+        });
+        html += `</div>`;
+      }
+
+      // Precrias con alerta
+      const prAlertas = prPs.filter(p =>
+        (p.ultimo?.oxigeno_am != null && p.ultimo.oxigeno_am < 3.5) ||
+        (p.ultimo?.oxigeno_pm != null && p.ultimo.oxigeno_pm < 3.5)
+      );
+      if (prAlertas.length) {
+        html += `<div style="margin-top:6px;font-size:12px;border-top:1px dashed #e5e7eb;padding-top:4px">
+          <span style="font-size:10px;font-weight:700;color:#6366f1">🔵 PRECRIAS</span>`;
+        prAlertas.forEach(p => {
+          const o2am = p.ultimo?.oxigeno_am;
+          const e = o2am != null && o2am < 2.9 ? '🔴' : '🟡';
+          html += `<div style="padding:3px 0;border-bottom:1px solid #f3f4f6">
+            ${e} <strong>PR ${p.piscina}</strong>: AM=${o2am??'—'} PM=${p.ultimo?.oxigeno_pm??'—'}
+          </div>`;
+        });
+        html += `</div>`;
+      }
+
+      // Reservorio si existe
+      if (resPs.length) {
+        html += `<div style="margin-top:6px;font-size:11px;color:#0891b2;border-top:1px dashed #e5e7eb;padding-top:4px">
+          💧 ${resPs.length} punto(s) de reservorio registrado(s)
+        </div>`;
       }
     } else {
       html += `<div style="font-size:12px;color:#9ca3af">Sin reportes registrados</div>`;
@@ -407,6 +430,35 @@ function renderSelectorCampos(containerId) {
   `;
 }
 
+// ── Helper: tabla resumen simple ───────────────────────────
+function tablaResumen(resultados, titulo, bgColor) {
+  if (!resultados.length) return '';
+  let filas = '';
+  resultados.forEach(({ps, dato}) => {
+    if (!dato) {
+      filas += `<tr class="ps-row" onclick="verDetallePiscina('${ps}')"><td class="ps-nombre">${ps}</td><td colspan="5" style="color:#9ca3af;font-size:12px">Sin datos</td></tr>`;
+      return;
+    }
+    const eAM = estO2(dato.oxigeno_am), ePM = estO2(dato.oxigeno_pm);
+    const worst = eAM==='c'||ePM==='c'?'c':eAM==='v'||ePM==='v'?'v':'n';
+    const dotCls = {c:'dot-c',v:'dot-v',n:'dot-n'}[worst];
+    const lbl = {c:'🔴 Crítico',v:'🟡 Vigilancia',n:'🟢 Normal'}[worst];
+    const bcCls = {c:'bc rc',v:'bc ry',n:'bc rg'}[worst];
+    filas += `<tr class="ps-row" onclick="verDetallePiscina('${ps}')">
+      <td><span class="alerta-dot ${dotCls}"></span><span class="ps-nombre">${ps}</span></td>
+      <td>${dato.oxigeno_am??'—'}</td><td>${dato.oxigeno_pm??'—'}</td>
+      <td>${dato.temp_am??'—'}</td><td>${dato.temp_pm??'—'}</td>
+      <td><span class="${bcCls}">${lbl}</span></td>
+    </tr>`;
+  });
+  return `
+    <div style="background:${bgColor};color:white;padding:8px 12px;border-radius:8px 8px 0 0;font-weight:700;font-size:13px">${titulo}</div>
+    <div style="overflow-x:auto"><table style="border:1px solid #e5e7eb;border-top:none">
+      <thead><tr style="background:#f9fafb">
+        <th>PS</th><th>O₂ AM</th><th>O₂ PM</th><th>T AM</th><th>T PM</th><th>Estado</th>
+      </tr></thead><tbody>${filas}</tbody></table></div>`;
+}
+
 async function verResumenCampo(sector) {
   detalleSector = sector;
   const esFimasa3 = sector === FIMASA3;
@@ -418,25 +470,34 @@ async function verResumenCampo(sector) {
   document.getElementById('resumen-titulo').textContent = '📍 ' + sector;
   document.getElementById('resumen-tabla').innerHTML = '<div class="spinner" style="margin:20px auto"></div>';
   irA('v-resumen');
+
   const rp = await fetch(`/api/piscinas?sector=${encodeURIComponent(sector)}`);
   const dp = await rp.json();
   if (!dp.piscinas || !dp.piscinas.length) {
     document.getElementById('resumen-tabla').innerHTML = '<p style="text-align:center;color:#6b7280;padding:20px">Sin datos registrados aún para este campo.<br><small>Sube una foto primero.</small></p>';
     return;
   }
+
   const promesas = dp.piscinas.map(ps =>
     fetch(`/api/historico?sector=${encodeURIComponent(sector)}&piscina=${encodeURIComponent(ps)}&dias=1`)
       .then(r=>r.json()).then(d=>({ps, dato: d.datos && d.datos.length ? d.datos[d.datos.length-1] : null}))
   );
   const resultados = await Promise.all(promesas);
   resultados.sort((a,b) => { const na=parseInt(a.ps), nb=parseInt(b.ps); return isNaN(na)||isNaN(nb) ? a.ps.localeCompare(b.ps) : na-nb; });
+
   const fechas = resultados.filter(r=>r.dato).map(r=>r.dato.fecha);
   const ultimaFecha = fechas.length ? fechas[fechas.length-1] : '';
   document.getElementById('resumen-fecha').textContent = ultimaFecha ? `Última lectura: ${ultimaFecha}` : '';
 
+  // Separar por tipo
+  const rPs  = resultados.filter(r => !r.dato || (r.dato.tipo||'piscina') === 'piscina');
+  const rPr  = resultados.filter(r => r.dato && r.dato.tipo === 'precria');
+  const rRes = resultados.filter(r => r.dato && r.dato.tipo === 'reservorio');
+
   let html = '';
+
   if (esFimasa3) {
-    // Tabla especial Fimasa 3 con 4 mediciones
+    // Tabla especial Fimasa 3
     html = `<div style="overflow-x:auto"><table>
       <thead>
         <tr style="background:#e0f2fe">
@@ -477,29 +538,38 @@ async function verResumenCampo(sector) {
     html += `</tbody></table></div>`;
     html += `<div style="margin-top:8px;font-size:11px;color:#7c3aed">🟣 16:00 = solo dashboard, no genera alerta</div>`;
   } else {
-    // Tabla normal
-    html = `<div style="overflow-x:auto"><table><thead><tr>
-      <th>Piscina</th><th>O₂ AM</th><th>O₂ PM</th><th>T AM</th><th>T PM</th><th>Estado</th>
-    </tr></thead><tbody>`;
-    resultados.forEach(({ps, dato}) => {
-      if (!dato) {
-        html += `<tr class="ps-row" onclick="verDetallePiscina('${ps}')"><td class="ps-nombre">${ps}</td><td colspan="5" style="color:#9ca3af;font-size:12px">Sin datos</td></tr>`;
-        return;
+    // Sección piscinas
+    if (rPs.length) {
+      html += tablaResumen(rPs, '🐟 PISCINAS', '#0F6E56');
+
+      // Promedios solo de piscinas
+      const o2amVals = rPs.filter(r=>r.dato?.oxigeno_am!=null).map(r=>r.dato.oxigeno_am);
+      const o2pmVals = rPs.filter(r=>r.dato?.oxigeno_pm!=null).map(r=>r.dato.oxigeno_pm);
+      if (o2amVals.length || o2pmVals.length) {
+        const pAM = o2amVals.length ? (o2amVals.reduce((a,b)=>a+b,0)/o2amVals.length).toFixed(2) : '—';
+        const pPM = o2pmVals.length ? (o2pmVals.reduce((a,b)=>a+b,0)/o2pmVals.length).toFixed(2) : '—';
+        html += `<div class="prom-box">
+          <div class="prom-item"><div class="prom-val">${pAM}</div><div class="prom-lbl">O₂ AM prom mg/L</div></div>
+          <div class="prom-item"><div class="prom-val">${pPM}</div><div class="prom-lbl">O₂ PM prom mg/L</div></div>
+        </div>`;
       }
-      const eAM = estO2(dato.oxigeno_am), ePM = estO2(dato.oxigeno_pm);
-      const worst = eAM==='c'||ePM==='c'?'c':eAM==='v'||ePM==='v'?'v':'n';
-      const dotCls = {c:'dot-c',v:'dot-v',n:'dot-n'}[worst];
-      const lbl = {c:'🔴 Crítico',v:'🟡 Vigilancia',n:'🟢 Normal'}[worst];
-      const bcCls = {c:'bc rc',v:'bc ry',n:'bc rg'}[worst];
-      html += `<tr class="ps-row" onclick="verDetallePiscina('${ps}')">
-        <td><span class="alerta-dot ${dotCls}"></span><span class="ps-nombre">${ps}</span></td>
-        <td>${dato.oxigeno_am??'—'}</td><td>${dato.oxigeno_pm??'—'}</td>
-        <td>${dato.temp_am??'—'}</td><td>${dato.temp_pm??'—'}</td>
-        <td><span class="${bcCls}">${lbl}</span></td>
-      </tr>`;
-    });
-    html += '</tbody></table></div>';
+    }
+
+    // Sección precrias
+    if (rPr.length) {
+      html += `<div style="margin-top:12px;">`;
+      html += tablaResumen(rPr, '🔵 PRECRIAS', '#6366f1');
+      html += `</div>`;
+    }
+
+    // Sección reservorio
+    if (rRes.length) {
+      html += `<div style="margin-top:12px;">`;
+      html += tablaResumen(rRes, '💧 RESERVORIO', '#0891b2');
+      html += `</div>`;
+    }
   }
+
   html += '<p style="font-size:11px;color:#9ca3af;text-align:center;margin-top:10px">Toca una piscina para ver su historial detallado →</p>';
   document.getElementById('resumen-tabla').innerHTML = html;
 }
@@ -593,7 +663,6 @@ async function cargarDetalle() {
   charts = {};
 
   if (esFimasa3) {
-    // Métricas Fimasa 3: 4 mediciones
     const e00 = estO2(ultimo.oxigeno_00);
     const e02 = estO2(ultimo.oxigeno_02);
     const eAM = estO2(ultimo.oxigeno_am);
@@ -605,20 +674,10 @@ async function cargarDetalle() {
       <div class="metric-card" style="border:1.5px solid #ede9fe"><div class="metric-val" style="color:#7c3aed">${ultimo.oxigeno_pm??'—'}</div><div class="metric-lbl">O₂ 16:00 (mg/L)</div></div>
     `;
     document.getElementById('detalle-charts').innerHTML = `
-      <div class="chart-wrap">
-        <div class="chart-titulo">🌙 Madrugada — O₂ (00:30, 02:30, 05:00)</div>
-        <canvas id="ch-madrugada"></canvas>
-      </div>
-      <div class="chart-wrap">
-        <div class="chart-titulo">🌅 Temperatura madrugada (00:30, 02:30, 05:00)</div>
-        <canvas id="ch-temp"></canvas>
-      </div>
-      <div class="chart-wrap">
-        <div class="chart-titulo" style="color:#7c3aed">🌆 16:00 PM — O₂ y Temperatura</div>
-        <canvas id="ch-pm"></canvas>
-      </div>
+      <div class="chart-wrap"><div class="chart-titulo">🌙 Madrugada — O₂ (00:30, 02:30, 05:00)</div><canvas id="ch-madrugada"></canvas></div>
+      <div class="chart-wrap"><div class="chart-titulo">🌅 Temperatura madrugada</div><canvas id="ch-temp"></canvas></div>
+      <div class="chart-wrap"><div class="chart-titulo" style="color:#7c3aed">🌆 16:00 PM — O₂ y Temperatura</div><canvas id="ch-pm"></canvas></div>
     `;
-    // Gráfica O2 madrugada (3 líneas)
     charts.madrugada = new Chart(document.getElementById('ch-madrugada').getContext('2d'), {
       type:'line',
       data:{labels, datasets:[
@@ -632,7 +691,6 @@ async function cargarDetalle() {
         scales:{y:{grid:{color:'#f0f0f0'},ticks:{font:{size:11}},title:{display:true,text:'mg/L',font:{size:10}}},
           x:{grid:{display:false},ticks:{font:{size:10},maxRotation:45,maxTicksLimit:10}}}}
     });
-    // Gráfica temperatura madrugada
     charts.temp = new Chart(document.getElementById('ch-temp').getContext('2d'), {
       type:'line',
       data:{labels, datasets:[
@@ -644,10 +702,8 @@ async function cargarDetalle() {
         scales:{y:{grid:{color:'#f0f0f0'},ticks:{font:{size:11}},title:{display:true,text:'°C',font:{size:10}}},
           x:{grid:{display:false},ticks:{font:{size:10},maxRotation:45,maxTicksLimit:10}}}}
     });
-    // Gráfica PM
     charts.pm = crearChartDoble('ch-pm', labels, d.datos.map(x=>x.oxigeno_pm), 'O₂ 16:00 (mg/L)', '#7c3aed', d.datos.map(x=>x.temp_pm), 'T° 16:00 (°C)', '#ef4444', true);
   } else {
-    // Métricas normales
     const eAM = estO2(ultimo.oxigeno_am), ePM = estO2(ultimo.oxigeno_pm);
     document.getElementById('detalle-metrics').innerHTML = `
       <div class="metric-card alerta-${eAM}"><div class="metric-val">${ultimo.oxigeno_am??'—'}</div><div class="metric-lbl">O₂ AM (mg/L)</div></div>
@@ -794,67 +850,120 @@ async function enviarFoto(){
 }
 
 function mostrarResultado(d){
-  const piscinas=d.piscinas||[];
+  const piscinas = d.piscinas || [];
   const esFimasa3 = d.sector === FIMASA3;
 
+  const ps  = piscinas.filter(p => (p.tipo||'piscina') === 'piscina');
+  const pr  = piscinas.filter(p => p.tipo === 'precria');
+  const res = piscinas.filter(p => p.tipo === 'reservorio');
+
   let crit, vig, norm;
+  const pspr = [...ps, ...pr];
   if (esFimasa3) {
-    crit = piscinas.filter(p=>estO2(p.oxigeno_00)==='c'||estO2(p.oxigeno_02)==='c'||estO2(p.oxigeno_am)==='c').length;
-    vig  = piscinas.filter(p=>{
+    crit = pspr.filter(p=>estO2(p.oxigeno_00)==='c'||estO2(p.oxigeno_02)==='c'||estO2(p.oxigeno_am)==='c').length;
+    vig  = pspr.filter(p=>{
       const e00=estO2(p.oxigeno_00),e02=estO2(p.oxigeno_02),eam=estO2(p.oxigeno_am);
       return (e00==='v'||e02==='v'||eam==='v') && e00!=='c' && e02!=='c' && eam!=='c';
     }).length;
   } else {
-    crit = piscinas.filter(p=>estO2(p.oxigeno_am)==='c'||estO2(p.oxigeno_pm)==='c').length;
-    vig  = piscinas.filter(p=>(estO2(p.oxigeno_am)==='v'||estO2(p.oxigeno_pm)==='v')&&estO2(p.oxigeno_am)!=='c'&&estO2(p.oxigeno_pm)!=='c').length;
+    crit = pspr.filter(p=>estO2(p.oxigeno_am)==='c'||estO2(p.oxigeno_pm)==='c').length;
+    vig  = pspr.filter(p=>(estO2(p.oxigeno_am)==='v'||estO2(p.oxigeno_pm)==='v')&&estO2(p.oxigeno_am)!=='c'&&estO2(p.oxigeno_pm)!=='c').length;
   }
-  norm = piscinas.length - crit - vig;
+  norm = pspr.length - crit - vig;
 
-  let html=`<div class="estado ok"><div class="estado-icon">✅</div><h3>¡Procesado!</h3><p>${d.sector||''} — ${d.fecha||''} — ${piscinas.length} piscinas</p><p style="margin-top:6px;font-size:12px">${d.alertas_enviadas} biólogos notificados</p><div style="display:flex;gap:8px;justify-content:center;margin-top:10px"><span class="res-badge rc">🔴 ${crit}</span><span class="res-badge ry">🟡 ${vig}</span><span class="res-badge rg">🟢 ${norm}</span></div></div>`;
+  let html = `<div class="estado ok"><div class="estado-icon">✅</div><h3>¡Procesado!</h3>
+    <p>${d.sector||''} — ${d.fecha||''}</p>
+    <p style="margin-top:4px;font-size:12px">${ps.length} piscinas${pr.length ? ` | ${pr.length} precrias` : ''}${res.length ? ` | ${res.length} reservorio` : ''}</p>
+    <p style="margin-top:4px;font-size:12px">${d.alertas_enviadas} biólogos notificados</p>
+    <div style="display:flex;gap:8px;justify-content:center;margin-top:10px">
+      <span class="res-badge rc">🔴 ${crit}</span>
+      <span class="res-badge ry">🟡 ${vig}</span>
+      <span class="res-badge rg">🟢 ${norm}</span>
+    </div>
+  </div>`;
 
-  if (esFimasa3) {
-    html += `<div style="overflow-x:auto"><table><thead>
-      <tr style="background:#e0f2fe">
-        <th rowspan="2">PS</th>
-        <th colspan="2" style="text-align:center;color:#0369a1">00:30</th>
-        <th colspan="2" style="text-align:center;color:#0369a1">02:30</th>
-        <th colspan="2" style="text-align:center;color:#0369a1">05:00</th>
-        <th colspan="2" style="text-align:center;color:#7c3aed">16:00</th>
-        <th rowspan="2">Estado</th>
-      </tr>
-      <tr style="background:#f0f9ff">
-        <th style="text-align:center;font-size:10px">O₂</th><th style="text-align:center;font-size:10px">T°</th>
-        <th style="text-align:center;font-size:10px">O₂</th><th style="text-align:center;font-size:10px">T°</th>
-        <th style="text-align:center;font-size:10px">O₂</th><th style="text-align:center;font-size:10px">T°</th>
-        <th style="text-align:center;font-size:10px">O₂</th><th style="text-align:center;font-size:10px">T°</th>
-      </tr>
-    </thead><tbody>`;
-    piscinas.forEach(p=>{
-      const vals=[p.oxigeno_00,p.oxigeno_02,p.oxigeno_am].filter(v=>v!=null);
-      const minVal=vals.length?Math.min(...vals):null;
-      const w=minVal!=null?(minVal<2.9?'c':minVal<3.5?'v':'n'):'n';
-      const cls={c:'bc rc',v:'bc ry',n:'bc rg'}[w];
-      const lbl={c:'🔴 Crítico',v:'🟡 Vigilancia',n:'🟢 Normal'}[w];
-      html+=`<tr><td><b>${p.ps}</b></td>
-        <td style="text-align:center">${p.oxigeno_00??'—'}</td><td style="text-align:center">${p.temp_00??'—'}</td>
-        <td style="text-align:center">${p.oxigeno_02??'—'}</td><td style="text-align:center">${p.temp_02??'—'}</td>
-        <td style="text-align:center">${p.oxigeno_am??'—'}</td><td style="text-align:center">${p.temp_am??'—'}</td>
-        <td style="text-align:center;color:#7c3aed">${p.oxigeno_pm??'—'}</td><td style="text-align:center;color:#7c3aed">${p.temp_pm??'—'}</td>
-        <td><span class="${cls}">${lbl}</span></td></tr>`;
-    });
-    html+='</tbody></table></div>';
-  } else {
-    html+=`<div style="overflow-x:auto"><table><thead><tr><th>PS</th><th>O₂AM</th><th>O₂PM</th><th>TAM</th><th>TPM</th><th>Estado</th></tr></thead><tbody>`;
-    piscinas.forEach(p=>{
-      const sAM=estO2(p.oxigeno_am),sPM=estO2(p.oxigeno_pm);
-      const w=sAM==='c'||sPM==='c'?'c':sAM==='v'||sPM==='v'?'v':'n';
-      const cls={c:'bc rc',v:'bc ry',n:'bc rg'}[w];
-      const lbl={c:'🔴 Crítico',v:'🟡 Vigilancia',n:'🟢 Normal'}[w];
-      html+=`<tr><td><b>${p.ps}</b></td><td>${p.oxigeno_am??'—'}</td><td>${p.oxigeno_pm??'—'}</td><td>${p.temp_am??'—'}</td><td>${p.temp_pm??'—'}</td><td><span class="${cls}">${lbl}</span></td></tr>`;
-    });
-    html+='</tbody></table></div>';
+  // Tabla piscinas
+  if (ps.length) {
+    if (esFimasa3) {
+      html += tablaF3Resultado(ps, '🐟 PISCINAS');
+    } else {
+      html += tablaSimpleResultado(ps, '🐟 PISCINAS', '#0F6E56');
+      // Promedios
+      const o2amV = ps.filter(p=>p.oxigeno_am!=null).map(p=>p.oxigeno_am);
+      const o2pmV = ps.filter(p=>p.oxigeno_pm!=null).map(p=>p.oxigeno_pm);
+      if (o2amV.length || o2pmV.length) {
+        const pAM = o2amV.length ? (o2amV.reduce((a,b)=>a+b,0)/o2amV.length).toFixed(2) : '—';
+        const pPM = o2pmV.length ? (o2pmV.reduce((a,b)=>a+b,0)/o2pmV.length).toFixed(2) : '—';
+        html += `<div class="prom-box"><div class="prom-item"><div class="prom-val">${pAM}</div><div class="prom-lbl">O₂ AM prom</div></div><div class="prom-item"><div class="prom-val">${pPM}</div><div class="prom-lbl">O₂ PM prom</div></div></div>`;
+      }
+    }
   }
-  document.getElementById('foto-estado').innerHTML=html;
+
+  // Tabla precrias
+  if (pr.length) {
+    html += `<div style="margin-top:12px">`;
+    html += tablaSimpleResultado(pr, '🔵 PRECRIAS', '#6366f1');
+    html += `</div>`;
+  }
+
+  // Tabla reservorio
+  if (res.length) {
+    html += `<div style="margin-top:12px">`;
+    html += tablaSimpleResultado(res, '💧 RESERVORIO', '#0891b2');
+    html += `</div>`;
+  }
+
+  document.getElementById('foto-estado').innerHTML = html;
+}
+
+function tablaSimpleResultado(piscinas, titulo, bg) {
+  let filas = '';
+  piscinas.forEach(p => {
+    const sAM=estO2(p.oxigeno_am), sPM=estO2(p.oxigeno_pm);
+    const w=sAM==='c'||sPM==='c'?'c':sAM==='v'||sPM==='v'?'v':'n';
+    const cls={c:'bc rc',v:'bc ry',n:'bc rg'}[w];
+    const lbl={c:'🔴 Crítico',v:'🟡 Vigilancia',n:'🟢 Normal'}[w];
+    filas += `<tr><td><b>${p.ps}</b></td><td>${p.oxigeno_am??'—'}</td><td>${p.oxigeno_pm??'—'}</td><td>${p.temp_am??'—'}</td><td>${p.temp_pm??'—'}</td><td><span class="${cls}">${lbl}</span></td></tr>`;
+  });
+  return `<div style="background:${bg};color:white;padding:8px 12px;border-radius:8px 8px 0 0;font-weight:700;font-size:13px">${titulo}</div>
+    <div style="overflow-x:auto"><table style="border:1px solid #e5e7eb;border-top:none">
+      <thead><tr><th>PS</th><th>O₂AM</th><th>O₂PM</th><th>TAM</th><th>TPM</th><th>Estado</th></tr></thead>
+      <tbody>${filas}</tbody></table></div>`;
+}
+
+function tablaF3Resultado(piscinas, titulo) {
+  let filas = '';
+  piscinas.forEach(p => {
+    const vals=[p.oxigeno_00,p.oxigeno_02,p.oxigeno_am].filter(v=>v!=null);
+    const minVal=vals.length?Math.min(...vals):null;
+    const w=minVal!=null?(minVal<2.9?'c':minVal<3.5?'v':'n'):'n';
+    const cls={c:'bc rc',v:'bc ry',n:'bc rg'}[w];
+    const lbl={c:'🔴 Crítico',v:'🟡 Vigilancia',n:'🟢 Normal'}[w];
+    filas += `<tr><td><b>${p.ps}</b></td>
+      <td style="text-align:center">${p.oxigeno_00??'—'}</td><td style="text-align:center">${p.temp_00??'—'}</td>
+      <td style="text-align:center">${p.oxigeno_02??'—'}</td><td style="text-align:center">${p.temp_02??'—'}</td>
+      <td style="text-align:center">${p.oxigeno_am??'—'}</td><td style="text-align:center">${p.temp_am??'—'}</td>
+      <td style="text-align:center;color:#7c3aed">${p.oxigeno_pm??'—'}</td><td style="text-align:center;color:#7c3aed">${p.temp_pm??'—'}</td>
+      <td><span class="${cls}">${lbl}</span></td></tr>`;
+  });
+  return `<div style="background:#0F6E56;color:white;padding:8px 12px;border-radius:8px 8px 0 0;font-weight:700;font-size:13px">${titulo}</div>
+    <div style="overflow-x:auto"><table style="border:1px solid #e5e7eb;border-top:none">
+      <thead>
+        <tr style="background:#e0f2fe">
+          <th rowspan="2">PS</th>
+          <th colspan="2" style="text-align:center;color:#0369a1">00:30</th>
+          <th colspan="2" style="text-align:center;color:#0369a1">02:30</th>
+          <th colspan="2" style="text-align:center;color:#0369a1">05:00</th>
+          <th colspan="2" style="text-align:center;color:#7c3aed">16:00</th>
+          <th rowspan="2">Estado</th>
+        </tr>
+        <tr style="background:#f0f9ff">
+          <th style="text-align:center;font-size:10px">O₂</th><th style="text-align:center;font-size:10px">T°</th>
+          <th style="text-align:center;font-size:10px">O₂</th><th style="text-align:center;font-size:10px">T°</th>
+          <th style="text-align:center;font-size:10px">O₂</th><th style="text-align:center;font-size:10px">T°</th>
+          <th style="text-align:center;font-size:10px">O₂</th><th style="text-align:center;font-size:10px">T°</th>
+        </tr>
+      </thead><tbody>${filas}</tbody></table></div>`;
 }
 
 function estO2(v){if(v===null||v===undefined)return 'n';return v<2.9?'c':v<3.5?'v':'n';}
