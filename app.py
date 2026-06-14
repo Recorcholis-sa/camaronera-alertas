@@ -52,7 +52,6 @@ def init_db():
             created_at TEXT
         )
     """)
-    # Migraciones
     for col, tipo in [
         ("oxigeno_00","REAL"), ("temp_00","REAL"),
         ("oxigeno_02","REAL"), ("temp_02","REAL"),
@@ -162,6 +161,10 @@ def leer_usuarios():
         emails_existentes = {u["email"] for u in usuarios}
         for u in base:
             if u.get("email") not in emails_existentes:
+                # Si tiene todos los campos o el nombre es "Gerencia", asumir rol gerencia
+                if u.get("rol") == "gerencia" or u.get("nombre","").lower() == "gerencia":
+                    u["rol"] = "gerencia"
+                    u["campos"] = CAMPOS
                 usuarios.append(u)
     except:
         pass
@@ -189,7 +192,6 @@ def guardar_usuario_db(nombre, email, whatsapp, campos, rol):
 
 # ── Resumen por campo ──────────────────────────────────────
 def get_resumen_campo(sector, dias=3):
-    """Devuelve piscinas separadas por tipo: piscina, precria, reservorio."""
     try:
         con = get_conn()
         cur = con.cursor(cursor_factory=RealDictCursor)
@@ -244,7 +246,6 @@ def get_resumen_todos_campos():
     return resumen
 
 def separar_por_tipo(piscinas_data):
-    """Separa lista de piscinas en piscinas, precrias y reservorio."""
     piscinas   = [p for p in piscinas_data if p.get("tipo","piscina") == "piscina"]
     precrias   = [p for p in piscinas_data if p.get("tipo","piscina") == "precria"]
     reservorio = [p for p in piscinas_data if p.get("tipo","piscina") == "reservorio"]
@@ -333,20 +334,19 @@ def resumen_diario():
             rol = u.get("rol", "biologo")
 
             if rol == "gerencia":
-                asunto, cuerpo, html_body = construir_html_gerencia_consolidado(fecha_hoy)
-                if not asunto:
-                    asunto, cuerpo, html_body = construir_html_gerencia_todo(fecha_hoy)
+                # Gerencia siempre recibe UN SOLO email consolidado
+                asunto, cuerpo, html_body = construir_resumen_gerencia_completo(fecha_hoy)
                 if asunto:
                     enviar_email_postmark(u["email"], u.get("nombre",""), asunto, cuerpo, html=html_body)
                     enviados += 1
             else:
+                # Biólogos reciben un email por cada campo asignado
                 for campo in u.get("campos", []):
                     piscinas_data = get_resumen_campo(campo, dias=4)
                     if not piscinas_data:
                         continue
                     todas = [{"ps": p["piscina"], "tipo": p.get("tipo","piscina"), **p["ultimo"]} for p in piscinas_data]
 
-                    # Solo alertas para piscinas y precrias
                     alertas = []
                     for p in piscinas_data:
                         if p.get("tipo","piscina") == "reservorio":
@@ -373,14 +373,16 @@ def resumen_diario():
 
                     if alertas:
                         nivel = "ALERTA CRITICA" if criticos else "VIGILANCIA"
-                        asunto = f"{'🔴' if criticos else '🟡'} {nivel} - {campo} - {fecha_hoy}"
+                        # Asunto biólogo: nombre del campo primero
+                        asunto = f"{campo} — {'🔴 CRITICO' if criticos else '🟡 VIGILANCIA'} — {fecha_hoy}"
                         cuerpo = f"{nivel}\nSector: {campo} | Fecha: {fecha_hoy}"
                         if campo == FIMASA3:
                             html_body = construir_html_biologo_fimasa3(campo, alertas, todas, fecha_hoy)
                         else:
                             html_body = construir_html_biologo(campo, alertas, todas, fecha_hoy)
                     else:
-                        asunto = f"🟢 TODO NORMAL - {campo} - {fecha_hoy}"
+                        # Asunto biólogo todo normal: nombre del campo primero
+                        asunto = f"{campo} — Todo Normal — {fecha_hoy}"
                         cuerpo = f"RESUMEN DIARIO\nSector: {campo} | Fecha: {fecha_hoy}\nTodas las piscinas en rango normal."
                         if campo == FIMASA3:
                             html_body = construir_html_biologo_fimasa3(campo, [], todas, fecha_hoy)
@@ -403,7 +405,6 @@ def dashboard_gerencia():
         fecha_hoy = (datetime.utcnow() - timedelta(hours=5)).strftime("%d/%m/%Y")
         resultado = []
         for campo, piscinas in resumen.items():
-            # Solo contar alertas de piscinas y precrias
             ps_y_pr = [p for p in piscinas if p.get("tipo","piscina") != "reservorio"]
             if campo == FIMASA3:
                 alertas  = sum(1 for p in ps_y_pr if tiene_alerta_fimasa3(p["ultimo"]))
@@ -416,7 +417,6 @@ def dashboard_gerencia():
                     p["ultimo"].get("oxigeno_am") is not None and p["ultimo"]["oxigeno_am"] < O2_CRITICO or
                     p["ultimo"].get("oxigeno_pm") is not None and p["ultimo"]["oxigeno_pm"] < O2_CRITICO)
 
-            # Promedios solo de piscinas (no precrias ni reservorio)
             solo_piscinas = [p for p in piscinas if p.get("tipo","piscina") == "piscina"]
             o2_am_vals = [p["ultimo"]["oxigeno_am"] for p in solo_piscinas if p["ultimo"].get("oxigeno_am") is not None]
             o2_pm_vals = [p["ultimo"]["oxigeno_pm"] for p in solo_piscinas if p["ultimo"].get("oxigeno_pm") is not None]
@@ -424,15 +424,10 @@ def dashboard_gerencia():
             prom_o2_pm = round(sum(o2_pm_vals)/len(o2_pm_vals), 2) if o2_pm_vals else None
 
             resultado.append({
-                "campo": campo,
-                "total": len(ps_y_pr),
-                "alertas": alertas,
-                "criticos": criticos,
-                "prom_o2_am": prom_o2_am,
-                "prom_o2_pm": prom_o2_pm,
+                "campo": campo, "total": len(ps_y_pr), "alertas": alertas, "criticos": criticos,
+                "prom_o2_am": prom_o2_am, "prom_o2_pm": prom_o2_pm,
                 "ultima_fecha": piscinas[0]["ultimo"].get("fecha") if piscinas and piscinas[0]["ultimo"] else None,
-                "piscinas": piscinas,
-                "es_fimasa3": campo == FIMASA3
+                "piscinas": piscinas, "es_fimasa3": campo == FIMASA3
             })
         return jsonify({"ok": True, "resumen": resultado, "fecha": fecha_hoy})
     except Exception as e:
@@ -507,8 +502,7 @@ def get_piscinas():
         def sort_key(p):
             try: return (0, int(p))
             except: return (1, p)
-        piscinas = sorted(piscinas_raw, key=sort_key)
-        return jsonify({"piscinas": piscinas})
+        return jsonify({"piscinas": sorted(piscinas_raw, key=sort_key)})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -589,7 +583,6 @@ def evaluar_y_notificar(datos, campo_param):
     fecha  = datos.get("fecha", "")
     alertas = []
     for p in datos.get("piscinas", []):
-        # Reservorio no genera alertas
         if p.get("tipo","piscina") == "reservorio":
             continue
         if sector == FIMASA3:
@@ -618,7 +611,8 @@ def evaluar_y_notificar(datos, campo_param):
         vistos.add(u.get("email"))
         rol = u.get("rol", "biologo")
         if rol == "gerencia":
-            asunto, cuerpo, html_body = construir_html_gerencia_consolidado(fecha)
+            # Gerencia recibe un solo consolidado de todos los campos
+            asunto, cuerpo, html_body = construir_resumen_gerencia_completo(fecha)
             if asunto:
                 enviar_email_postmark(u["email"], u.get("nombre",""), asunto, cuerpo, html=html_body)
                 enviados += 1
@@ -628,7 +622,8 @@ def evaluar_y_notificar(datos, campo_param):
             else:
                 criticos = [a for a in alertas if a["estado_am"]=="critico" or a["estado_pm"]=="critico"]
             nivel = "ALERTA CRITICA" if criticos else "VIGILANCIA"
-            asunto = f"{'🔴' if criticos else '🟡'} {nivel} - {sector} - {fecha}"
+            # Asunto biólogo: campo primero
+            asunto = f"{sector} — {'🔴 CRITICO' if criticos else '🟡 VIGILANCIA'} — {fecha}"
             cuerpo = f"{nivel}\nSector: {sector} | Fecha: {fecha}\n"
             if sector == FIMASA3:
                 html_body = construir_html_biologo_fimasa3(sector, alertas, datos.get("piscinas",[]), fecha)
@@ -658,7 +653,6 @@ def sort_ps(lst, key="ps"):
     return sorted(lst, key=lambda x: (0,int(x[key])) if str(x[key]).isdigit() else (1,str(x[key])))
 
 def bloque_promedios(piscinas, key_am="oxigeno_am", key_pm="oxigeno_pm", key_tam="temp_am"):
-    """Bloque de promedios para piscinas."""
     o2am_v = [p.get(key_am) for p in piscinas if p.get(key_am) is not None]
     o2pm_v = [p.get(key_pm) for p in piscinas if p.get(key_pm) is not None]
     tam_v  = [p.get(key_tam) for p in piscinas if p.get(key_tam) is not None]
@@ -666,18 +660,17 @@ def bloque_promedios(piscinas, key_am="oxigeno_am", key_pm="oxigeno_pm", key_tam
     prom_o2pm = round(sum(o2pm_v)/len(o2pm_v),2) if o2pm_v else "—"
     prom_tam  = round(sum(tam_v)/len(tam_v),1) if tam_v else "—"
     return f"""<div style="background:#f9fafb;border-radius:8px;padding:14px;margin-top:4px;margin-bottom:16px">
-      <div style="font-weight:700;color:#374151;margin-bottom:8px;font-size:13px">📊 PROMEDIOS PISCINAS</div>
+      <div style="font-weight:700;color:#374151;margin-bottom:8px;font-size:13px">PROMEDIOS PISCINAS</div>
       <table style="width:100%;text-align:center">
         <tr>
-          <td style="padding:4px"><div style="font-size:18px;font-weight:700;color:#1D9E75">{prom_o2am}</div><div style="font-size:11px;color:#6b7280">O₂ AM mg/L</div></td>
-          <td style="padding:4px"><div style="font-size:18px;font-weight:700;color:#0F6E56">{prom_o2pm}</div><div style="font-size:11px;color:#6b7280">O₂ PM mg/L</div></td>
-          <td style="padding:4px"><div style="font-size:18px;font-weight:700;color:#f59e0b">{prom_tam}</div><div style="font-size:11px;color:#6b7280">T° AM °C</div></td>
+          <td style="padding:4px"><div style="font-size:18px;font-weight:700;color:#1D9E75">{prom_o2am}</div><div style="font-size:11px;color:#6b7280">O2 AM mg/L</div></td>
+          <td style="padding:4px"><div style="font-size:18px;font-weight:700;color:#0F6E56">{prom_o2pm}</div><div style="font-size:11px;color:#6b7280">O2 PM mg/L</div></td>
+          <td style="padding:4px"><div style="font-size:18px;font-weight:700;color:#f59e0b">{prom_tam}</div><div style="font-size:11px;color:#6b7280">T AM C</div></td>
         </tr>
       </table>
     </div>"""
 
-def tabla_simple(piscinas, titulo, bg, mostrar_tipo=False):
-    """Tabla HTML simple O2 AM/PM + Temp AM/PM."""
+def tabla_simple(piscinas, titulo, bg):
     if not piscinas: return ""
     filas = ""
     for p in sort_ps(piscinas):
@@ -687,49 +680,194 @@ def tabla_simple(piscinas, titulo, bg, mostrar_tipo=False):
       <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-top:none">
         <thead><tr style="background:#f9fafb">
           <th style="padding:8px;text-align:center;font-size:12px;color:#6b7280;border-bottom:1px solid #e5e7eb">PS</th>
-          <th style="padding:8px;text-align:center;font-size:12px;color:#6b7280;border-bottom:1px solid #e5e7eb">O₂ AM</th>
-          <th style="padding:8px;text-align:center;font-size:12px;color:#6b7280;border-bottom:1px solid #e5e7eb">O₂ PM</th>
-          <th style="padding:8px;text-align:center;font-size:12px;color:#6b7280;border-bottom:1px solid #e5e7eb">T° AM</th>
-          <th style="padding:8px;text-align:center;font-size:12px;color:#6b7280;border-bottom:1px solid #e5e7eb">T° PM</th>
-        </tr></thead><tbody>{filas}</tbody></table></div>"""
-
-def seccion_precrias(precrias):
-    """Bloque HTML para precrias."""
-    if not precrias: return ""
-    filas = ""
-    for p in sort_ps(precrias):
-        filas += f"<tr><td style='padding:6px 10px;font-weight:700;text-align:center'>{p['ps']}</td>{celda_o2(p.get('oxigeno_am'))}{celda_o2(p.get('oxigeno_pm'))}{celda_temp(p.get('temp_am'))}{celda_temp(p.get('temp_pm'))}</tr>"
-    return f"""<div style="margin-bottom:4px">
-      <div style="background:#6366f1;color:white;padding:10px 14px;border-radius:8px 8px 0 0;font-weight:700;font-size:14px">🔵 PRECRIAS</div>
-      <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-top:none">
-        <thead><tr style="background:#f9fafb">
-          <th style="padding:8px;text-align:center;font-size:12px;color:#6b7280;border-bottom:1px solid #e5e7eb">PS</th>
-          <th style="padding:8px;text-align:center;font-size:12px;color:#6b7280;border-bottom:1px solid #e5e7eb">O₂ AM</th>
-          <th style="padding:8px;text-align:center;font-size:12px;color:#6b7280;border-bottom:1px solid #e5e7eb">O₂ PM</th>
-          <th style="padding:8px;text-align:center;font-size:12px;color:#6b7280;border-bottom:1px solid #e5e7eb">T° AM</th>
-          <th style="padding:8px;text-align:center;font-size:12px;color:#6b7280;border-bottom:1px solid #e5e7eb">T° PM</th>
+          <th style="padding:8px;text-align:center;font-size:12px;color:#6b7280;border-bottom:1px solid #e5e7eb">O2 AM</th>
+          <th style="padding:8px;text-align:center;font-size:12px;color:#6b7280;border-bottom:1px solid #e5e7eb">O2 PM</th>
+          <th style="padding:8px;text-align:center;font-size:12px;color:#6b7280;border-bottom:1px solid #e5e7eb">T AM</th>
+          <th style="padding:8px;text-align:center;font-size:12px;color:#6b7280;border-bottom:1px solid #e5e7eb">T PM</th>
         </tr></thead><tbody>{filas}</tbody></table></div>"""
 
 def seccion_reservorio(reservorio):
-    """Bloque HTML para reservorio."""
     if not reservorio: return ""
     filas = ""
     for p in sort_ps(reservorio):
         filas += f"<tr><td style='padding:6px 10px;font-weight:700;text-align:center'>{p['ps']}</td>{celda_o2(p.get('oxigeno_am'))}{celda_o2(p.get('oxigeno_pm'))}{celda_temp(p.get('temp_am'))}{celda_temp(p.get('temp_pm'))}</tr>"
     return f"""<div style="margin-bottom:16px">
-      <div style="background:#0891b2;color:white;padding:10px 14px;border-radius:8px 8px 0 0;font-weight:700;font-size:14px">💧 RESERVORIO</div>
+      <div style="background:#0891b2;color:white;padding:10px 14px;border-radius:8px 8px 0 0;font-weight:700;font-size:14px">RESERVORIO</div>
       <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-top:none">
         <thead><tr style="background:#f9fafb">
           <th style="padding:8px;text-align:center;font-size:12px;color:#6b7280;border-bottom:1px solid #e5e7eb">ID</th>
-          <th style="padding:8px;text-align:center;font-size:12px;color:#6b7280;border-bottom:1px solid #e5e7eb">O₂ AM</th>
-          <th style="padding:8px;text-align:center;font-size:12px;color:#6b7280;border-bottom:1px solid #e5e7eb">O₂ PM</th>
-          <th style="padding:8px;text-align:center;font-size:12px;color:#6b7280;border-bottom:1px solid #e5e7eb">T° AM</th>
-          <th style="padding:8px;text-align:center;font-size:12px;color:#6b7280;border-bottom:1px solid #e5e7eb">T° PM</th>
+          <th style="padding:8px;text-align:center;font-size:12px;color:#6b7280;border-bottom:1px solid #e5e7eb">O2 AM</th>
+          <th style="padding:8px;text-align:center;font-size:12px;color:#6b7280;border-bottom:1px solid #e5e7eb">O2 PM</th>
+          <th style="padding:8px;text-align:center;font-size:12px;color:#6b7280;border-bottom:1px solid #e5e7eb">T AM</th>
+          <th style="padding:8px;text-align:center;font-size:12px;color:#6b7280;border-bottom:1px solid #e5e7eb">T PM</th>
         </tr></thead><tbody>{filas}</tbody></table></div>"""
+
+# ── Email gerencia: UN SOLO EMAIL con todos los campos ─────
+def construir_resumen_gerencia_completo(fecha):
+    """
+    Construye UN SOLO email para gerencia con:
+    - Campos con alertas: detalle completo de piscinas
+    - Campos sin novedad: solo promedios de O2 y temperatura
+    """
+    campos_alerta = []
+    campos_normal = []
+    total_criticos = 0
+    total_vigilancia = 0
+
+    for campo in CAMPOS:
+        piscinas_data = get_resumen_campo(campo, dias=4)
+        if not piscinas_data:
+            continue
+        ps_y_pr = [p for p in piscinas_data if p.get("tipo","piscina") != "reservorio"]
+        ps_data  = [p for p in piscinas_data if p.get("tipo","piscina") == "piscina"]
+        pr_data  = [p for p in piscinas_data if p.get("tipo","piscina") == "precria"]
+
+        if campo == FIMASA3:
+            alertas  = [p for p in ps_y_pr if tiene_alerta_fimasa3(p["ultimo"])]
+            criticos = [p for p in alertas if tiene_critico_fimasa3(p["ultimo"])]
+        else:
+            alertas  = [p for p in ps_y_pr if
+                        (p["ultimo"].get("oxigeno_am") is not None and p["ultimo"]["oxigeno_am"] < O2_VIGILANCIA) or
+                        (p["ultimo"].get("oxigeno_pm") is not None and p["ultimo"]["oxigeno_pm"] < O2_VIGILANCIA)]
+            criticos = [p for p in alertas if
+                        (p["ultimo"].get("oxigeno_am") is not None and p["ultimo"]["oxigeno_am"] < O2_CRITICO) or
+                        (p["ultimo"].get("oxigeno_pm") is not None and p["ultimo"]["oxigeno_pm"] < O2_CRITICO)]
+
+        # Promedios solo de piscinas
+        o2am_v = [p["ultimo"]["oxigeno_am"] for p in ps_data if p["ultimo"].get("oxigeno_am") is not None]
+        o2pm_v = [p["ultimo"]["oxigeno_pm"] for p in ps_data if p["ultimo"].get("oxigeno_pm") is not None]
+        tam_v  = [p["ultimo"]["temp_am"] for p in ps_data if p["ultimo"].get("temp_am") is not None]
+        prom_am  = round(sum(o2am_v)/len(o2am_v),2) if o2am_v else "—"
+        prom_pm  = round(sum(o2pm_v)/len(o2pm_v),2) if o2pm_v else "—"
+        prom_tam = round(sum(tam_v)/len(tam_v),1) if tam_v else "—"
+        ultima_fecha = piscinas_data[0]["ultimo"].get("fecha","") if piscinas_data and piscinas_data[0]["ultimo"] else ""
+
+        if alertas:
+            total_criticos  += len(criticos)
+            total_vigilancia += len(alertas) - len(criticos)
+            campos_alerta.append({
+                "campo": campo, "piscinas_data": piscinas_data,
+                "ps_data": ps_data, "pr_data": pr_data,
+                "alertas": alertas, "criticos": criticos,
+                "prom_am": prom_am, "prom_pm": prom_pm, "prom_tam": prom_tam,
+                "ultima_fecha": ultima_fecha
+            })
+        else:
+            campos_normal.append({
+                "campo": campo, "prom_am": prom_am, "prom_pm": prom_pm,
+                "prom_tam": prom_tam, "ultima_fecha": ultima_fecha,
+                "n_piscinas": len(ps_data)
+            })
+
+    if not campos_alerta and not campos_normal:
+        return None, None, None
+
+    hay_criticos = total_criticos > 0
+    hay_alertas  = total_criticos > 0 or total_vigilancia > 0
+
+    if hay_criticos:
+        nivel_color = "#dc2626"
+        nivel_texto = "ALERTA CRITICA"
+        asunto = f"Resumen Alertas — {fecha} — CRITICO"
+    elif hay_alertas:
+        nivel_color = "#d97706"
+        nivel_texto = "VIGILANCIA"
+        asunto = f"Resumen Alertas — {fecha} — VIGILANCIA"
+    else:
+        nivel_color = "#16a34a"
+        nivel_texto = "TODO NORMAL"
+        asunto = f"Resumen Alertas — {fecha} — Normal"
+
+    # ── Sección campos con alertas ─────────────────────────
+    html_alertas = ""
+    for info in campos_alerta:
+        campo = info["campo"]
+        campo_color = "#dc2626" if info["criticos"] else "#d97706"
+
+        def filas_detalle(lst, key="piscina"):
+            filas = ""
+            for p in sort_ps(lst, key):
+                u = p["ultimo"]
+                if not u: continue
+                hist = " -> ".join([f"{h['fecha']}: {h.get('oxigeno_am','—')}" for h in p["historial"][:-1]]) if len(p["historial"])>1 else "—"
+                filas += f"<tr><td style='padding:6px 8px;font-weight:700;text-align:center'>{p[key]}</td>{celda_o2(u.get('oxigeno_am'))}{celda_o2(u.get('oxigeno_pm'))}{celda_temp(u.get('temp_am'))}{celda_temp(u.get('temp_pm'))}<td style='padding:6px 8px;font-size:11px;color:#6b7280'>{hist}</td></tr>"
+            return filas
+
+        cabecera = """<thead><tr style="background:#f9fafb">
+          <th style="padding:7px;text-align:center;font-size:11px;color:#6b7280;border-bottom:1px solid #e5e7eb">PS</th>
+          <th style="padding:7px;text-align:center;font-size:11px;color:#6b7280;border-bottom:1px solid #e5e7eb">O2 AM</th>
+          <th style="padding:7px;text-align:center;font-size:11px;color:#6b7280;border-bottom:1px solid #e5e7eb">O2 PM</th>
+          <th style="padding:7px;text-align:center;font-size:11px;color:#6b7280;border-bottom:1px solid #e5e7eb">T AM</th>
+          <th style="padding:7px;text-align:center;font-size:11px;color:#6b7280;border-bottom:1px solid #e5e7eb">T PM</th>
+          <th style="padding:7px;text-align:center;font-size:11px;color:#6b7280;border-bottom:1px solid #e5e7eb">Hist.</th>
+        </tr></thead>"""
+
+        filas_ps = filas_detalle(info["ps_data"])
+        filas_pr = filas_detalle(info["pr_data"])
+        bloque_ps = f'<table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-top:none">{cabecera}<tbody>{filas_ps}</tbody></table>' if filas_ps else ""
+        bloque_pr = f'<div style="margin-top:6px"><div style="background:#6366f1;color:white;padding:5px 12px;font-weight:700;font-size:12px">PRECRIAS</div><table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-top:none">{cabecera}<tbody>{filas_pr}</tbody></table></div>' if filas_pr else ""
+
+        html_alertas += f"""<div style="margin-bottom:20px;border-radius:10px;overflow:hidden;border:1px solid #e5e7eb">
+          <div style="background:{campo_color};color:white;padding:10px 14px;font-weight:700;font-size:14px;display:flex;justify-content:space-between;align-items:center">
+            <span>{campo} — {len(info['alertas'])} alertas | {len(info['criticos'])} criticas</span>
+            <span style="font-size:12px;opacity:.85">O2 AM prom: {info['prom_am']} mg/L</span>
+          </div>
+          {bloque_ps}{bloque_pr}
+        </div>"""
+
+    # ── Sección campos sin novedad ─────────────────────────
+    html_normal = ""
+    if campos_normal:
+        filas_norm = ""
+        for c in campos_normal:
+            if c["ultima_fecha"]:
+                filas_norm += f"""<tr>
+                  <td style="padding:7px 10px;font-weight:600;color:#374151">{c['campo']}</td>
+                  <td style="padding:7px 10px;text-align:center;background:#d1fae5;color:#065f46;font-weight:600">{c['prom_am']}</td>
+                  <td style="padding:7px 10px;text-align:center;background:#d1fae5;color:#065f46;font-weight:600">{c['prom_pm']}</td>
+                  <td style="padding:7px 10px;text-align:center;color:#374151">{c['prom_tam']}</td>
+                  <td style="padding:7px 10px;text-align:center;font-size:11px;color:#9ca3af">{c['ultima_fecha']}</td>
+                </tr>"""
+        if filas_norm:
+            html_normal = f"""<div style="margin-bottom:20px;border-radius:10px;overflow:hidden;border:1px solid #e5e7eb">
+              <div style="background:#16a34a;color:white;padding:10px 14px;font-weight:700;font-size:14px">
+                CAMPOS SIN NOVEDAD — Promedios O2
+              </div>
+              <table style="width:100%;border-collapse:collapse">
+                <thead><tr style="background:#f9fafb">
+                  <th style="padding:7px 10px;text-align:left;font-size:11px;color:#6b7280;border-bottom:1px solid #e5e7eb">Campo</th>
+                  <th style="padding:7px;text-align:center;font-size:11px;color:#6b7280;border-bottom:1px solid #e5e7eb">O2 AM</th>
+                  <th style="padding:7px;text-align:center;font-size:11px;color:#6b7280;border-bottom:1px solid #e5e7eb">O2 PM</th>
+                  <th style="padding:7px;text-align:center;font-size:11px;color:#6b7280;border-bottom:1px solid #e5e7eb">T AM</th>
+                  <th style="padding:7px;text-align:center;font-size:11px;color:#6b7280;border-bottom:1px solid #e5e7eb">Fecha</th>
+                </tr></thead>
+                <tbody>{filas_norm}</tbody>
+              </table>
+            </div>"""
+
+    html = f"""<div style="font-family:Arial,sans-serif;max-width:720px;margin:0 auto">
+      <div style="background:{nivel_color};color:white;padding:20px;border-radius:12px 12px 0 0;text-align:center">
+        <h1 style="margin:0;font-size:22px">{nivel_texto} — REPORTE CONSOLIDADO</h1>
+        <p style="margin:6px 0 0;font-size:14px;opacity:.9">Fecha: {fecha}</p>
+      </div>
+      <div style="background:white;padding:20px;border:1px solid #e5e7eb;border-top:none">
+        <div style="display:flex;gap:10px;margin-bottom:20px;text-align:center">
+          <div style="flex:1;background:#fef2f2;border-radius:8px;padding:12px"><div style="font-size:26px;font-weight:700;color:#dc2626">{total_criticos}</div><div style="font-size:11px;color:#6b7280">Criticas</div></div>
+          <div style="flex:1;background:#fffbeb;border-radius:8px;padding:12px"><div style="font-size:26px;font-weight:700;color:#d97706">{total_vigilancia}</div><div style="font-size:11px;color:#6b7280">Vigilancia</div></div>
+          <div style="flex:1;background:#f0fdf4;border-radius:8px;padding:12px"><div style="font-size:26px;font-weight:700;color:#16a34a">{len(campos_alerta)}</div><div style="font-size:11px;color:#6b7280">Campos con alerta</div></div>
+          <div style="flex:1;background:#f9fafb;border-radius:8px;padding:12px"><div style="font-size:26px;font-weight:700;color:#374151">{len(campos_normal)}</div><div style="font-size:11px;color:#6b7280">Sin novedad</div></div>
+        </div>
+        {html_alertas}
+        {html_normal}
+      </div>
+      <div style="background:#f9fafb;padding:10px;text-align:center;font-size:11px;color:#9ca3af;border-radius:0 0 12px 12px;border:1px solid #e5e7eb;border-top:none">Sistema de Alertas Camaronera Recorcholis S.A.</div>
+    </div>"""
+
+    cuerpo = f"{nivel_texto} — {fecha} | Criticas: {total_criticos} | Vigilancia: {total_vigilancia} | Sin novedad: {len(campos_normal)}"
+    return asunto, cuerpo, html
 
 # ── Emails biólogo ─────────────────────────────────────────
 def construir_html_biologo(sector, alertas_data, todas_piscinas, fecha):
-    # Separar por tipo
     ps_todas    = [p for p in todas_piscinas if p.get("tipo","piscina") == "piscina"]
     pr_todas    = [p for p in todas_piscinas if p.get("tipo","piscina") == "precria"]
     res_todas   = [p for p in todas_piscinas if p.get("tipo","piscina") == "reservorio"]
@@ -748,29 +886,27 @@ def construir_html_biologo(sector, alertas_data, todas_piscinas, fecha):
     normales_pr = [p for p in pr_todas if p["ps"] not in ps_alerta_ids]
 
     nivel_color = "#dc2626" if criticos else "#d97706"
-    nivel_texto = "🔴 ALERTA CRÍTICA" if criticos else "🟡 VIGILANCIA"
+    nivel_texto = "ALERTA CRITICA" if criticos else "VIGILANCIA"
 
-    # Sección piscinas
     html_piscinas = ""
     if criticos_ps:
-        html_piscinas += tabla_simple(criticos_ps, "🔴 PISCINAS CRÍTICAS — O₂ menor a 2.9 mg/L", "#dc2626")
+        html_piscinas += tabla_simple(criticos_ps, "PISCINAS CRITICAS — O2 menor a 2.9 mg/L", "#dc2626")
     if vigilancia_ps:
-        html_piscinas += tabla_simple(vigilancia_ps, "🟡 PISCINAS EN VIGILANCIA — O₂ entre 2.9 y 3.5 mg/L", "#d97706")
+        html_piscinas += tabla_simple(vigilancia_ps, "PISCINAS EN VIGILANCIA — O2 entre 2.9 y 3.5 mg/L", "#d97706")
     if normales_ps:
-        html_piscinas += tabla_simple(normales_ps, "🟢 PISCINAS NORMALES", "#16a34a")
+        html_piscinas += tabla_simple(normales_ps, "PISCINAS NORMALES", "#16a34a")
     html_piscinas += bloque_promedios(ps_todas)
 
-    # Sección precrias con alertas
     html_precrias = ""
     if pr_alertas or normales_pr:
         if criticos_pr:
-            html_precrias += tabla_simple(criticos_pr, "🔴 PRECRIAS CRÍTICAS", "#dc2626")
+            html_precrias += tabla_simple(criticos_pr, "PRECRIAS CRITICAS", "#dc2626")
         if vigilancia_pr:
-            html_precrias += tabla_simple(vigilancia_pr, "🟡 PRECRIAS EN VIGILANCIA", "#d97706")
+            html_precrias += tabla_simple(vigilancia_pr, "PRECRIAS EN VIGILANCIA", "#d97706")
         if normales_pr:
-            html_precrias += tabla_simple(normales_pr, "🟢 PRECRIAS NORMALES", "#16a34a")
+            html_precrias += tabla_simple(normales_pr, "PRECRIAS NORMALES", "#16a34a")
         if html_precrias:
-            html_precrias = f'<div style="border-top:2px solid #e5e7eb;padding-top:12px;margin-top:4px"><div style="font-weight:700;color:#6366f1;font-size:14px;margin-bottom:8px">🔵 PRECRIAS</div>{html_precrias}</div>'
+            html_precrias = f'<div style="border-top:2px solid #e5e7eb;padding-top:12px;margin-top:4px"><div style="font-weight:700;color:#6366f1;font-size:14px;margin-bottom:8px">PRECRIAS</div>{html_precrias}</div>'
 
     html_reservorio = ""
     if res_todas:
@@ -783,7 +919,7 @@ def construir_html_biologo(sector, alertas_data, todas_piscinas, fecha):
       </div>
       <div style="background:white;padding:20px;border:1px solid #e5e7eb;border-top:none">
         <div style="display:flex;gap:10px;margin-bottom:20px;text-align:center">
-          <div style="flex:1;background:#fef2f2;border-radius:8px;padding:12px"><div style="font-size:24px;font-weight:700;color:#dc2626">{len(criticos)}</div><div style="font-size:11px;color:#6b7280">Críticas</div></div>
+          <div style="flex:1;background:#fef2f2;border-radius:8px;padding:12px"><div style="font-size:24px;font-weight:700;color:#dc2626">{len(criticos)}</div><div style="font-size:11px;color:#6b7280">Criticas</div></div>
           <div style="flex:1;background:#fffbeb;border-radius:8px;padding:12px"><div style="font-size:24px;font-weight:700;color:#d97706">{len(vigilancia_ps)+len(vigilancia_pr)}</div><div style="font-size:11px;color:#6b7280">Vigilancia</div></div>
           <div style="flex:1;background:#f0fdf4;border-radius:8px;padding:12px"><div style="font-size:24px;font-weight:700;color:#16a34a">{len(normales_ps)+len(normales_pr)}</div><div style="font-size:11px;color:#6b7280">Normales</div></div>
         </div>
@@ -800,17 +936,17 @@ def construir_html_biologo_normal(sector, todas_piscinas, fecha):
     pr_todas  = [p for p in todas_piscinas if p.get("tipo","piscina") == "precria"]
     res_todas = [p for p in todas_piscinas if p.get("tipo","piscina") == "reservorio"]
 
-    html_ps  = tabla_simple(ps_todas, "🟢 PISCINAS", "#16a34a") + bloque_promedios(ps_todas) if ps_todas else ""
-    html_pr  = f'<div style="border-top:2px solid #e5e7eb;padding-top:12px;margin-top:4px"><div style="font-weight:700;color:#6366f1;font-size:14px;margin-bottom:8px">🔵 PRECRIAS</div>{tabla_simple(pr_todas, "🟢 PRECRIAS NORMALES", "#16a34a")}</div>' if pr_todas else ""
+    html_ps  = tabla_simple(ps_todas, "PISCINAS", "#16a34a") + bloque_promedios(ps_todas) if ps_todas else ""
+    html_pr  = f'<div style="border-top:2px solid #e5e7eb;padding-top:12px;margin-top:4px"><div style="font-weight:700;color:#6366f1;font-size:14px;margin-bottom:8px">PRECRIAS</div>{tabla_simple(pr_todas, "PRECRIAS NORMALES", "#16a34a")}</div>' if pr_todas else ""
     html_res = f'<div style="border-top:2px solid #e5e7eb;padding-top:12px;margin-top:4px">{seccion_reservorio(res_todas)}</div>' if res_todas else ""
 
     html = f"""<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
       <div style="background:#16a34a;color:white;padding:20px;border-radius:12px 12px 0 0;text-align:center">
-        <h1 style="margin:0;font-size:22px">🟢 RESUMEN DIARIO — TODO NORMAL</h1>
+        <h1 style="margin:0;font-size:22px">RESUMEN DIARIO — TODO NORMAL</h1>
         <p style="margin:6px 0 0;font-size:14px;opacity:.9">{sector} — {fecha}</p>
       </div>
       <div style="background:white;padding:20px;border:1px solid #e5e7eb;border-top:none">
-        <p style="font-size:13px;color:#6b7280;margin-bottom:16px;text-align:center">✅ Todas las piscinas en rango normal</p>
+        <p style="font-size:13px;color:#6b7280;margin-bottom:16px;text-align:center">Todas las piscinas en rango normal</p>
         {html_ps}{html_pr}{html_res}
       </div>
       <div style="background:#f9fafb;padding:10px;text-align:center;font-size:11px;color:#9ca3af;border-radius:0 0 12px 12px;border:1px solid #e5e7eb;border-top:none">Sistema de Alertas Camaronera Recorcholis S.A.</div>
@@ -819,16 +955,13 @@ def construir_html_biologo_normal(sector, todas_piscinas, fecha):
 
 def construir_html_biologo_fimasa3(sector, alertas_data, todas_piscinas, fecha):
     ps_todas  = [p for p in todas_piscinas if p.get("tipo","piscina") == "piscina"]
-    pr_todas  = [p for p in todas_piscinas if p.get("tipo","piscina") == "precria"]
-    res_todas = [p for p in todas_piscinas if p.get("tipo","piscina") == "reservorio"]
-
     criticos  = [p for p in alertas_data if p.get("estado_00")=="critico" or p.get("estado_02")=="critico" or p.get("estado_am")=="critico"]
     vigilancia= [p for p in alertas_data if p not in criticos]
     ps_alerta_ids = {p["ps"] for p in alertas_data}
-    normales  = [p for p in ps_todas + pr_todas if p["ps"] not in ps_alerta_ids]
+    normales  = [p for p in ps_todas if p["ps"] not in ps_alerta_ids]
 
     nivel_color = "#16a34a" if not alertas_data else ("#dc2626" if criticos else "#d97706")
-    nivel_texto = "🟢 RESUMEN DIARIO" if not alertas_data else ("🔴 ALERTA CRÍTICA" if criticos else "🟡 VIGILANCIA")
+    nivel_texto = "RESUMEN DIARIO" if not alertas_data else ("ALERTA CRITICA" if criticos else "VIGILANCIA")
 
     def tabla_f3(piscinas, titulo, bg):
         if not piscinas: return ""
@@ -851,9 +984,9 @@ def construir_html_biologo_fimasa3(sector, alertas_data, todas_piscinas, fecha):
                 <th colspan="2" style="padding:6px;text-align:center;font-size:11px;color:#0369a1;border-bottom:1px solid #bae6fd">05:00</th>
               </tr>
               <tr style="background:#f0f9ff">
-                <th style="padding:5px;text-align:center;font-size:10px;color:#6b7280;border-bottom:1px solid #e5e7eb">O₂</th><th style="padding:5px;text-align:center;font-size:10px;color:#6b7280;border-bottom:1px solid #e5e7eb">T°</th>
-                <th style="padding:5px;text-align:center;font-size:10px;color:#6b7280;border-bottom:1px solid #e5e7eb">O₂</th><th style="padding:5px;text-align:center;font-size:10px;color:#6b7280;border-bottom:1px solid #e5e7eb">T°</th>
-                <th style="padding:5px;text-align:center;font-size:10px;color:#6b7280;border-bottom:1px solid #e5e7eb">O₂</th><th style="padding:5px;text-align:center;font-size:10px;color:#6b7280;border-bottom:1px solid #e5e7eb">T°</th>
+                <th style="padding:5px;text-align:center;font-size:10px;color:#6b7280;border-bottom:1px solid #e5e7eb">O2</th><th style="padding:5px;text-align:center;font-size:10px;color:#6b7280;border-bottom:1px solid #e5e7eb">T</th>
+                <th style="padding:5px;text-align:center;font-size:10px;color:#6b7280;border-bottom:1px solid #e5e7eb">O2</th><th style="padding:5px;text-align:center;font-size:10px;color:#6b7280;border-bottom:1px solid #e5e7eb">T</th>
+                <th style="padding:5px;text-align:center;font-size:10px;color:#6b7280;border-bottom:1px solid #e5e7eb">O2</th><th style="padding:5px;text-align:center;font-size:10px;color:#6b7280;border-bottom:1px solid #e5e7eb">T</th>
               </tr>
             </thead><tbody>{filas}</tbody></table></div>"""
 
@@ -865,162 +998,23 @@ def construir_html_biologo_fimasa3(sector, alertas_data, todas_piscinas, fecha):
       </div>
       <div style="background:white;padding:20px;border:1px solid #e5e7eb;border-top:none">
         <div style="display:flex;gap:10px;margin-bottom:20px;text-align:center">
-          <div style="flex:1;background:#fef2f2;border-radius:8px;padding:12px"><div style="font-size:24px;font-weight:700;color:#dc2626">{len(criticos)}</div><div style="font-size:11px;color:#6b7280">Críticas</div></div>
+          <div style="flex:1;background:#fef2f2;border-radius:8px;padding:12px"><div style="font-size:24px;font-weight:700;color:#dc2626">{len(criticos)}</div><div style="font-size:11px;color:#6b7280">Criticas</div></div>
           <div style="flex:1;background:#fffbeb;border-radius:8px;padding:12px"><div style="font-size:24px;font-weight:700;color:#d97706">{len(vigilancia)}</div><div style="font-size:11px;color:#6b7280">Vigilancia</div></div>
           <div style="flex:1;background:#f0fdf4;border-radius:8px;padding:12px"><div style="font-size:24px;font-weight:700;color:#16a34a">{len(normales)}</div><div style="font-size:11px;color:#6b7280">Normales</div></div>
         </div>
-        {tabla_f3(criticos, "🔴 CRÍTICAS — O₂ menor a 2.9 mg/L", "#dc2626")}
-        {tabla_f3(vigilancia, "🟡 VIGILANCIA — O₂ entre 2.9 y 3.5 mg/L", "#d97706")}
-        {tabla_f3([p for p in ps_todas if p["ps"] not in {a["ps"] for a in alertas_data}], "🟢 PISCINAS NORMALES", "#16a34a")}
+        {tabla_f3(criticos, "CRITICAS — O2 menor a 2.9 mg/L", "#dc2626")}
+        {tabla_f3(vigilancia, "VIGILANCIA — O2 entre 2.9 y 3.5 mg/L", "#d97706")}
+        {tabla_f3(normales, "PISCINAS NORMALES", "#16a34a")}
       </div>
       <div style="background:#f9fafb;padding:10px;text-align:center;font-size:11px;color:#9ca3af;border-radius:0 0 12px 12px;border:1px solid #e5e7eb;border-top:none">Sistema de Alertas Camaronera Recorcholis S.A.</div>
     </div>"""
     return html
 
-def construir_html_gerencia_todo(fecha):
-    secciones = ""
-    for campo in CAMPOS:
-        piscinas_data = get_resumen_campo(campo, dias=1)
-        if not piscinas_data: continue
-        ps_data  = [p for p in piscinas_data if p.get("tipo","piscina") == "piscina"]
-        pr_data  = [p for p in piscinas_data if p.get("tipo","piscina") == "precria"]
-        res_data = [p for p in piscinas_data if p.get("tipo","piscina") == "reservorio"]
-
-        filas_ps = ""
-        for p in sort_ps(ps_data, "piscina"):
-            u = p["ultimo"]
-            if not u: continue
-            filas_ps += f"<tr><td style='padding:6px 10px;font-weight:700;text-align:center'>{p['piscina']}</td>{celda_o2(u.get('oxigeno_am'))}{celda_o2(u.get('oxigeno_pm'))}{celda_temp(u.get('temp_am'))}{celda_temp(u.get('temp_pm'))}</tr>"
-
-        if not filas_ps: continue
-
-        o2am_v = [p["ultimo"]["oxigeno_am"] for p in ps_data if p["ultimo"].get("oxigeno_am") is not None]
-        o2pm_v = [p["ultimo"]["oxigeno_pm"] for p in ps_data if p["ultimo"].get("oxigeno_pm") is not None]
-        prom_am = round(sum(o2am_v)/len(o2am_v),2) if o2am_v else "—"
-        prom_pm = round(sum(o2pm_v)/len(o2pm_v),2) if o2pm_v else "—"
-
-        secciones += f"""<div style="margin-bottom:20px">
-          <div style="background:#16a34a;color:white;padding:8px 14px;border-radius:8px 8px 0 0;font-weight:700;font-size:13px">📍 {campo} — O₂ AM prom: {prom_am} | O₂ PM prom: {prom_pm}</div>
-          <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-top:none">
-            <thead><tr style="background:#f9fafb">
-              <th style="padding:6px;text-align:center;font-size:11px;color:#6b7280;border-bottom:1px solid #e5e7eb">PS</th>
-              <th style="padding:6px;text-align:center;font-size:11px;color:#6b7280;border-bottom:1px solid #e5e7eb">O₂ AM</th>
-              <th style="padding:6px;text-align:center;font-size:11px;color:#6b7280;border-bottom:1px solid #e5e7eb">O₂ PM</th>
-              <th style="padding:6px;text-align:center;font-size:11px;color:#6b7280;border-bottom:1px solid #e5e7eb">T° AM</th>
-              <th style="padding:6px;text-align:center;font-size:11px;color:#6b7280;border-bottom:1px solid #e5e7eb">T° PM</th>
-            </tr></thead><tbody>{filas_ps}</tbody></table></div>"""
-
-    if not secciones:
-        return None, None, None
-
-    html = f"""<div style="font-family:Arial,sans-serif;max-width:700px;margin:0 auto">
-      <div style="background:#16a34a;color:white;padding:20px;border-radius:12px 12px 0 0;text-align:center">
-        <h1 style="margin:0;font-size:22px">🟢 RESUMEN DIARIO — TODO NORMAL</h1>
-        <p style="margin:6px 0 0;font-size:14px;opacity:.9">Fecha: {fecha}</p>
-      </div>
-      <div style="background:white;padding:20px;border:1px solid #e5e7eb;border-top:none">
-        <p style="font-size:13px;color:#6b7280;margin-bottom:20px;text-align:center">✅ Todas las piscinas reportadas en rango normal</p>
-        {secciones}
-      </div>
-      <div style="background:#f9fafb;padding:10px;text-align:center;font-size:11px;color:#9ca3af;border-radius:0 0 12px 12px;border:1px solid #e5e7eb;border-top:none">Sistema de Alertas Camaronera Recorcholis S.A.</div>
-    </div>"""
-    asunto = f"🟢 RESUMEN DIARIO — Todo Normal — {fecha}"
-    cuerpo = f"RESUMEN DIARIO\nFecha: {fecha}\nTodas las piscinas en rango normal."
-    return asunto, cuerpo, html
-
-def construir_html_gerencia_consolidado(fecha):
-    campos_info = []
-    total_criticos = 0
-    total_vigilancia = 0
-    for campo in CAMPOS:
-        piscinas_data = get_resumen_campo(campo, dias=4)
-        if not piscinas_data: continue
-        ps_y_pr = [p for p in piscinas_data if p.get("tipo","piscina") != "reservorio"]
-        if campo == FIMASA3:
-            alertas  = [p for p in ps_y_pr if tiene_alerta_fimasa3(p["ultimo"])]
-            criticos = [p for p in alertas if tiene_critico_fimasa3(p["ultimo"])]
-        else:
-            alertas  = [p for p in ps_y_pr if
-                        (p["ultimo"].get("oxigeno_am") is not None and p["ultimo"]["oxigeno_am"] < O2_VIGILANCIA) or
-                        (p["ultimo"].get("oxigeno_pm") is not None and p["ultimo"]["oxigeno_pm"] < O2_VIGILANCIA)]
-            criticos = [p for p in alertas if
-                        (p["ultimo"].get("oxigeno_am") is not None and p["ultimo"]["oxigeno_am"] < O2_CRITICO) or
-                        (p["ultimo"].get("oxigeno_pm") is not None and p["ultimo"]["oxigeno_pm"] < O2_CRITICO)]
-        if alertas:
-            campos_info.append({"campo":campo,"piscinas":piscinas_data,"alertas":alertas,"criticos":criticos})
-            total_criticos  += len(criticos)
-            total_vigilancia+= len(alertas)-len(criticos)
-    if not campos_info: return None, None, None
-
-    nivel_color = "#dc2626" if total_criticos > 0 else "#d97706"
-    nivel_texto = "🔴 ALERTA CRÍTICA" if total_criticos > 0 else "🟡 VIGILANCIA"
-    asunto = f"{nivel_texto} — Reporte Consolidado — {fecha}"
-    secciones = ""
-
-    for info in campos_info:
-        campo = info["campo"]
-        campo_color = "#dc2626" if info["criticos"] else "#d97706"
-        ps_data = [p for p in info["piscinas"] if p.get("tipo","piscina") == "piscina"]
-        pr_data = [p for p in info["piscinas"] if p.get("tipo","piscina") == "precria"]
-        res_data= [p for p in info["piscinas"] if p.get("tipo","piscina") == "reservorio"]
-
-        o2am_v = [p["ultimo"]["oxigeno_am"] for p in ps_data if p["ultimo"].get("oxigeno_am") is not None]
-        prom   = round(sum(o2am_v)/len(o2am_v),2) if o2am_v else "—"
-
-        def filas_tabla(lst, key="piscina"):
-            filas = ""
-            for p in sort_ps(lst, key):
-                u = p["ultimo"]
-                if not u: continue
-                hist = " → ".join([f"{h['fecha']}: {h.get('oxigeno_am','—')}" for h in p["historial"][:-1]]) if len(p["historial"])>1 else "—"
-                filas += f"<tr><td style='padding:6px 10px;font-weight:700;text-align:center'>{p[key]}</td>{celda_o2(u.get('oxigeno_am'))}{celda_o2(u.get('oxigeno_pm'))}{celda_temp(u.get('temp_am'))}{celda_temp(u.get('temp_pm'))}<td style='padding:6px 8px;font-size:11px;color:#6b7280'>{hist}</td></tr>"
-            return filas
-
-        cabecera = f"""<thead><tr style="background:#f9fafb">
-          <th style="padding:8px;text-align:center;font-size:11px;color:#6b7280;border-bottom:1px solid #e5e7eb">PS</th>
-          <th style="padding:8px;text-align:center;font-size:11px;color:#6b7280;border-bottom:1px solid #e5e7eb">O₂ AM</th>
-          <th style="padding:8px;text-align:center;font-size:11px;color:#6b7280;border-bottom:1px solid #e5e7eb">O₂ PM</th>
-          <th style="padding:8px;text-align:center;font-size:11px;color:#6b7280;border-bottom:1px solid #e5e7eb">T° AM</th>
-          <th style="padding:8px;text-align:center;font-size:11px;color:#6b7280;border-bottom:1px solid #e5e7eb">T° PM</th>
-          <th style="padding:8px;text-align:center;font-size:11px;color:#6b7280;border-bottom:1px solid #e5e7eb">Hist.</th>
-        </tr></thead>"""
-
-        filas_ps  = filas_tabla(ps_data)
-        filas_pr  = filas_tabla(pr_data)
-
-        bloque_ps = f"""<table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-top:none">{cabecera}<tbody>{filas_ps}</tbody></table>""" if filas_ps else ""
-        bloque_pr = f"""<div style="margin-top:8px"><div style="background:#6366f1;color:white;padding:6px 14px;font-weight:700;font-size:12px">🔵 PRECRIAS</div><table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-top:none">{cabecera}<tbody>{filas_pr}</tbody></table></div>""" if filas_pr else ""
-
-        secciones += f"""<div style="margin-bottom:24px">
-          <div style="background:{campo_color};color:white;padding:10px 14px;border-radius:8px 8px 0 0;font-weight:700">
-            📍 {campo} — {len(info['alertas'])} alertas | {len(info['criticos'])} críticas | O₂ AM prom: {prom} mg/L
-          </div>
-          {bloque_ps}{bloque_pr}
-        </div>"""
-
-    html = f"""<div style="font-family:Arial,sans-serif;max-width:700px;margin:0 auto">
-      <div style="background:{nivel_color};color:white;padding:20px;border-radius:12px 12px 0 0;text-align:center">
-        <h1 style="margin:0;font-size:22px">{nivel_texto} — REPORTE CONSOLIDADO</h1>
-        <p style="margin:6px 0 0;font-size:14px;opacity:.9">Fecha: {fecha}</p>
-      </div>
-      <div style="background:white;padding:20px;border:1px solid #e5e7eb;border-top:none">
-        <div style="display:flex;gap:10px;margin-bottom:24px;text-align:center">
-          <div style="flex:1;background:#fef2f2;border-radius:8px;padding:12px"><div style="font-size:28px;font-weight:700;color:#dc2626">{total_criticos}</div><div style="font-size:11px;color:#6b7280">Piscinas Críticas</div></div>
-          <div style="flex:1;background:#fffbeb;border-radius:8px;padding:12px"><div style="font-size:28px;font-weight:700;color:#d97706">{total_vigilancia}</div><div style="font-size:11px;color:#6b7280">En Vigilancia</div></div>
-          <div style="flex:1;background:#eff6ff;border-radius:8px;padding:12px"><div style="font-size:28px;font-weight:700;color:#2563eb">{len(campos_info)}</div><div style="font-size:11px;color:#6b7280">Campos Afectados</div></div>
-        </div>
-        {secciones}
-      </div>
-      <div style="background:#f9fafb;padding:10px;text-align:center;font-size:11px;color:#9ca3af;border-radius:0 0 12px 12px;border:1px solid #e5e7eb;border-top:none">Sistema de Alertas Camaronera Recorcholis S.A.</div>
-    </div>"""
-    cuerpo = f"{nivel_texto} — {fecha}\nCampos con alertas: {len(campos_info)} | Críticas: {total_criticos} | Vigilancia: {total_vigilancia}"
-    return asunto, cuerpo, html
-
 def enviar_email_postmark(dest_email, dest_nombre, asunto, cuerpo, html=None):
     try:
         print(f"Enviando Postmark a {dest_email}...")
         payload = {
-            "From": EMAIL_REMITENTE,
+            "From": f"Camaronera Alertas <{EMAIL_REMITENTE}>",
             "To": dest_email,
             "Subject": asunto,
             "TextBody": cuerpo,
