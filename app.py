@@ -475,12 +475,25 @@ def historico():
             cur.execute("SELECT MAX(corrida) as mc FROM lecturas WHERE sector=%s AND piscina=%s", (sector, piscina))
             row = cur.fetchone()
             max_corrida = row["mc"] if row and row["mc"] else 1
-            cur.execute("""
-                SELECT fecha, oxigeno_am, oxigeno_pm, temp_am, temp_pm, corrida,
-                       oxigeno_00, temp_00, oxigeno_02, temp_02, COALESCE(tipo,'piscina') as tipo
-                FROM lecturas WHERE sector=%s AND piscina=%s AND corrida=%s
-                ORDER BY created_at ASC LIMIT %s
-            """, (sector, piscina, max_corrida, dias))
+            if dias == 1:
+                # Hoy: tomar solo el ultimo registro
+                cur.execute("""
+                    SELECT fecha, oxigeno_am, oxigeno_pm, temp_am, temp_pm, corrida,
+                           oxigeno_00, temp_00, oxigeno_02, temp_02, COALESCE(tipo,'piscina') as tipo
+                    FROM lecturas WHERE sector=%s AND piscina=%s AND corrida=%s
+                    ORDER BY created_at DESC LIMIT 1
+                """, (sector, piscina, max_corrida))
+            else:
+                # Multiples dias: tomar los ultimos N ordenados cronologicamente
+                cur.execute("""
+                    SELECT * FROM (
+                        SELECT fecha, oxigeno_am, oxigeno_pm, temp_am, temp_pm, corrida,
+                               oxigeno_00, temp_00, oxigeno_02, temp_02, COALESCE(tipo,'piscina') as tipo,
+                               created_at
+                        FROM lecturas WHERE sector=%s AND piscina=%s AND corrida=%s
+                        ORDER BY created_at DESC LIMIT %s
+                    ) sub ORDER BY created_at ASC
+                """, (sector, piscina, max_corrida, dias))
         rows = cur.fetchall()
         cur.close(); con.close()
         datos = [dict(r) for r in rows]
