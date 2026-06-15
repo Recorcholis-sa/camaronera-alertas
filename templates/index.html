@@ -480,7 +480,11 @@ async function verResumenCampo(sector) {
   resultados.sort((a,b) => { const na=parseInt(a.ps), nb=parseInt(b.ps); return isNaN(na)||isNaN(nb) ? a.ps.localeCompare(b.ps) : na-nb; });
 
   const fechas = resultados.filter(r=>r.dato).map(r=>r.dato.fecha);
-  const ultimaFecha = fechas.length ? fechas[fechas.length-1] : '';
+  const fechasOrdenadas = fechas.slice().sort((a,b) => {
+  const [da,ma,ya] = a.split('/'); const [db,mb,yb] = b.split('/');
+  return new Date(yb+'-'+mb+'-'+db) - new Date(ya+'-'+ma+'-'+da);
+});
+const ultimaFecha = fechasOrdenadas.length ? fechasOrdenadas[0] : '';
   document.getElementById('resumen-fecha').textContent = ultimaFecha ? `Última lectura: ${ultimaFecha}` : '';
 
   const rPs  = resultados.filter(r => !r.dato || (r.dato.tipo||'piscina') === 'piscina');
