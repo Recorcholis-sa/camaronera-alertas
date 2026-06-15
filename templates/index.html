@@ -367,10 +367,13 @@ function renderDashboard(resumen, fecha) {
         html += `<div style="margin-top:6px;font-size:12px">`;
         pisAlertas.forEach(p => {
           const o2am = p.ultimo?.oxigeno_am;
+          const o2pm = p.ultimo?.oxigeno_pm;
+          const tam  = p.ultimo?.temp_am;
+          const tpm  = p.ultimo?.temp_pm;
           const e = o2am != null && o2am < 2.9 ? '🔴' : '🟡';
           const hist = p.historial.slice(0,-1).map(h => `${h.fecha}: ${h.oxigeno_am??'—'}`).join(' | ');
           html += `<div style="padding:3px 0;border-bottom:1px solid #f3f4f6">
-            ${e} <strong>Ps ${p.piscina}</strong>: AM=${o2am??'—'} PM=${p.ultimo?.oxigeno_pm??'—'}
+            ${e} <strong>Ps ${p.piscina}</strong>: O₂AM=${o2am??'—'} T°AM=${tam??'—'} | O₂PM=${o2pm??'—'} T°PM=${tpm??'—'}
             ${hist ? `<div class="hist-mini">Ant: ${hist}</div>` : ''}
           </div>`;
         });
@@ -386,9 +389,12 @@ function renderDashboard(resumen, fecha) {
           <span style="font-size:10px;font-weight:700;color:#6366f1">🔵 PRECRIAS</span>`;
         prAlertas.forEach(p => {
           const o2am = p.ultimo?.oxigeno_am;
+          const o2pm = p.ultimo?.oxigeno_pm;
+          const tam  = p.ultimo?.temp_am;
+          const tpm  = p.ultimo?.temp_pm;
           const e = o2am != null && o2am < 2.9 ? '🔴' : '🟡';
           html += `<div style="padding:3px 0;border-bottom:1px solid #f3f4f6">
-            ${e} <strong>PR ${p.piscina}</strong>: AM=${o2am??'—'} PM=${p.ultimo?.oxigeno_pm??'—'}
+            ${e} <strong>PR ${p.piscina}</strong>: O₂AM=${o2am??'—'} T°AM=${tam??'—'} | O₂PM=${o2pm??'—'} T°PM=${tpm??'—'}
           </div>`;
         });
         html += `</div>`;
