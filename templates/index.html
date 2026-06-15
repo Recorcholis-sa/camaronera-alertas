@@ -209,7 +209,6 @@ td{padding:8px;border-bottom:1px solid #f3f4f6;color:#111}
     <div class="preview" id="previewWrap"><img id="previewImg" src="" alt="preview"></div>
     <div id="foto-estado"></div>
     <button class="btn btn-green" id="btnEnviar" onclick="enviarFoto()" disabled>📤 Procesar y enviar alertas</button>
-    <button class="btn btn-outline" id="btnNueva" onclick="resetFoto()" style="display:none">📷 Subir otra foto</button>
     <button class="btn btn-outline" id="btnOtraFoto" onclick="otraFotoMismoCampo()" style="display:none;margin-top:8px;border-color:#0891b2;color:#0891b2">📷 Subir otra foto del mismo campo</button>
     <button class="btn btn-outline" id="btnDescargar" onclick="descargarResumen()" style="display:none;margin-top:8px;border-color:#6366f1;color:#6366f1">📥 Finalizar y descargar resumen</button>
   </div>
@@ -851,7 +850,6 @@ async function enviarFoto(){
     });
     const dAcumulado = {...d, piscinas: piscinasAcumuladas};
     mostrarResultado(dAcumulado);
-    document.getElementById('btnNueva').style.display='flex';
     document.getElementById('btnOtraFoto').style.display='flex';
     document.getElementById('btnEnviar').style.display='none';
     document.getElementById('btnDescargar').style.display='flex';
@@ -1149,11 +1147,17 @@ function descargarResumen() {
   ctx.font = '11px Arial';
   ctx.fillText('Sistema de Alertas Camaronera Recorcholis S.A.', PADX, y + 20);
 
-  // Download
-  const link = document.createElement('a');
-  link.download = `resumen_${sector.replace(/ /g,'_')}_${fecha.replace(/\//g,'-')}.png`;
-  link.href = canvas.toDataURL('image/png');
-  link.click();
+  // Download as PNG image
+  canvas.toBlob(function(blob) {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.download = 'resumen_' + sector.replace(/ /g,'_') + '_' + fecha.replace(/\/g,'-') + '.png';
+    link.href = url;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }, 'image/png');
 }
 
 function estO2(v){if(v===null||v===undefined)return 'n';return v<2.9?'c':v<3.5?'v':'n';}
@@ -1165,7 +1169,6 @@ function otraFotoMismoCampo(){
   document.getElementById('foto-source-grid').style.display='grid';
   document.getElementById('btnEnviar').style.display='flex';
   document.getElementById('btnEnviar').disabled=true;
-  document.getElementById('btnNueva').style.display='none';
   document.getElementById('btnOtraFoto').style.display='none';
   document.getElementById('btnDescargar').style.display='none';
   document.getElementById('fileInputCamera').value='';
@@ -1187,7 +1190,6 @@ function resetFoto(){
   document.getElementById('foto-source-grid').style.display='grid';
   document.getElementById('btnEnviar').style.display='flex';
   document.getElementById('btnEnviar').disabled=true;
-  document.getElementById('btnNueva').style.display='none';
   document.getElementById('btnOtraFoto').style.display='none';
   document.getElementById('fileInputCamera').value='';
   document.getElementById('fileInputGallery').value='';
