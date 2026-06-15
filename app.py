@@ -478,20 +478,20 @@ def historico():
             if dias == 1:
                 # Hoy: tomar solo el ultimo registro
                 cur.execute("""
-                    SELECT fecha, oxigeno_am, oxigeno_pm, temp_am, temp_pm, corrida,
+                    SELECT DISTINCT ON (fecha) fecha, oxigeno_am, oxigeno_pm, temp_am, temp_pm, corrida,
                            oxigeno_00, temp_00, oxigeno_02, temp_02, COALESCE(tipo,'piscina') as tipo
                     FROM lecturas WHERE sector=%s AND piscina=%s AND corrida=%s
-                    ORDER BY created_at DESC LIMIT 1
+                    ORDER BY fecha DESC, created_at DESC LIMIT 1
                 """, (sector, piscina, max_corrida))
             else:
                 # Multiples dias: tomar los ultimos N ordenados cronologicamente
                 cur.execute("""
                     SELECT * FROM (
-                        SELECT fecha, oxigeno_am, oxigeno_pm, temp_am, temp_pm, corrida,
+                        SELECT DISTINCT ON (fecha) fecha, oxigeno_am, oxigeno_pm, temp_am, temp_pm, corrida,
                                oxigeno_00, temp_00, oxigeno_02, temp_02, COALESCE(tipo,'piscina') as tipo,
                                created_at
                         FROM lecturas WHERE sector=%s AND piscina=%s AND corrida=%s
-                        ORDER BY created_at DESC LIMIT %s
+                        ORDER BY fecha DESC, created_at DESC LIMIT %s
                     ) sub ORDER BY created_at ASC
                 """, (sector, piscina, max_corrida, dias))
         rows = cur.fetchall()
@@ -553,7 +553,7 @@ def extraer_con_ia(imagen_b64, mime, campo=""):
             "filas antes de PRECRIAS = tipo piscina, "
             "filas despues de PRECRIAS y antes de RESERVORIO = tipo precria, "
             "filas despues de RESERVORIO = tipo reservorio. "
-            "Si no hay secciones PRECRIAS ni RESERVORIO, todas son tipo piscina. "
+            "Si no hay secciones PRECRIAS ni RESERVORIO, todas son tipo piscina. " "En la columna PS de las precrias puede aparecer la palabra Pre o pre antes del numero (ej: Pre 1, pre 1). " "Ignora esa palabra y usa solo el numero como codigo de piscina (ej: Pre 1 = ps 1, pre 10 = ps 10). "
             "Devuelve SOLO JSON valido sin texto extra ni explicaciones: "
             '{"sector":"nombre","piscinas":[{"ps":"codigo","tipo":"piscina","oxigeno_am":3.5,"oxigeno_pm":3.2,"temp_am":28.1,"temp_pm":27.8}]}'
         )
