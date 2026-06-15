@@ -602,7 +602,7 @@ def extraer_con_ia(imagen_b64, mime, campo=""):
             "maxOutputTokens": 4000
         }
     }
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={GEMINI_API_KEY}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key={GEMINI_API_KEY}"
     req = urllib.request.Request(
         url,
         data=json.dumps(payload).encode(),
