@@ -422,10 +422,15 @@ def dashboard_gerencia():
             o2_pm_vals = [p["ultimo"]["oxigeno_pm"] for p in solo_piscinas if p["ultimo"].get("oxigeno_pm") is not None]
             prom_o2_am = round(sum(o2_am_vals)/len(o2_am_vals), 2) if o2_am_vals else None
             prom_o2_pm = round(sum(o2_pm_vals)/len(o2_pm_vals), 2) if o2_pm_vals else None
+            temp_am_vals = [p["ultimo"]["temp_am"] for p in solo_piscinas if p["ultimo"].get("temp_am") is not None]
+            temp_pm_vals = [p["ultimo"]["temp_pm"] for p in solo_piscinas if p["ultimo"].get("temp_pm") is not None]
+            prom_temp_am = round(sum(temp_am_vals)/len(temp_am_vals), 1) if temp_am_vals else None
+            prom_temp_pm = round(sum(temp_pm_vals)/len(temp_pm_vals), 1) if temp_pm_vals else None
 
             resultado.append({
                 "campo": campo, "total": len(ps_y_pr), "alertas": alertas, "criticos": criticos,
                 "prom_o2_am": prom_o2_am, "prom_o2_pm": prom_o2_pm,
+                "prom_temp_am": prom_temp_am, "prom_temp_pm": prom_temp_pm,
                 "ultima_fecha": piscinas[0]["ultimo"].get("fecha") if piscinas and piscinas[0]["ultimo"] else None,
                 "piscinas": piscinas, "es_fimasa3": campo == FIMASA3
             })
