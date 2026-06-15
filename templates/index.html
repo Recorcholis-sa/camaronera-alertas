@@ -266,6 +266,44 @@ const GRUPOS = [
   {nombre:"Recorcholis",campos:["Recorcholis 1","Recorcholis 2"]},
 ];
 
+// Colores de fondo por campo
+const CAMPO_COLORS = {
+  'Rolesa 1':     {bg:'#3b0a0a', wave:'%23e57373'},
+  'Rolesa 2':     {bg:'#3b0a0a', wave:'%23e57373'},
+  'Caesa 1':      {bg:'#3b2a00', wave:'%23ffd54f'},
+  'Caesa 2':      {bg:'#3b2a00', wave:'%23ffd54f'},
+  'Pantrusko 1':  {bg:'#00282e', wave:'%234dd0e1'},
+  'Pantrusko 2':  {bg:'#00282e', wave:'%234dd0e1'},
+  'Fimasa 1':     {bg:'#0a0e3b', wave:'%235c6bc0'},
+  'Fimasa 2':     {bg:'#0a0e3b', wave:'%235c6bc0'},
+  'Fimasa 3':     {bg:'#0a0e3b', wave:'%235c6bc0'},
+  'Recorcholis 1':{bg:'#0a2e0a', wave:'%2366bb6a'},
+  'Recorcholis 2':{bg:'#0a2e0a', wave:'%2366bb6a'},
+};
+const DEFAULT_BG = '#062e22';
+const DEFAULT_WAVE = '%2390E4C1';
+
+function setCampoBg(campo) {
+  const c = CAMPO_COLORS[campo];
+  const bg = c ? c.bg : DEFAULT_BG;
+  const wave = c ? c.wave : DEFAULT_WAVE;
+  document.body.style.background = bg;
+  document.body.style.setProperty('--wave-color', wave);
+  // Update ::after pseudo-element via style tag
+  let styleTag = document.getElementById('dynamic-bg');
+  if (!styleTag) { styleTag = document.createElement('style'); styleTag.id = 'dynamic-bg'; document.head.appendChild(styleTag); }
+  styleTag.textContent = `body::before { background:
+    radial-gradient(ellipse at 20% 20%, rgba(255,255,255,0.06) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 80%, rgba(255,255,255,0.04) 0%, transparent 60%),
+    ${bg} !important; }`;
+}
+
+function resetBg() {
+  document.body.style.background = '';
+  const styleTag = document.getElementById('dynamic-bg');
+  if (styleTag) styleTag.textContent = '';
+}
+
 let campoParametrista = null;
 let archivoFoto = null;
 let biologoCampos = [];
@@ -283,6 +321,7 @@ function irA(vid) {
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.getElementById(vid).classList.add('active');
   window.scrollTo(0,0);
+  if (vid==='v-inicio'||vid==='v-gerencia'||vid==='v-biologo'||vid==='v-parametrista'||vid==='v-foto') resetBg();
   if (vid==='v-biologo') renderCamposBiologo();
   if (vid==='v-parametrista') renderCamposSel();
   if (vid==='v-gerencia') cargarDashboard();
@@ -590,6 +629,7 @@ async function verResumenCampo(sector) {
   };
   document.getElementById('resumen-titulo').textContent = '📍 ' + sector;
   document.getElementById('resumen-tabla').innerHTML = '<div class="spinner" style="margin:20px auto"></div>';
+  setCampoBg(sector);
   irA('v-resumen');
 
   const rp = await fetch(`/api/piscinas?sector=${encodeURIComponent(sector)}`);
@@ -726,6 +766,7 @@ async function verDetallePiscina(piscina) {
   document.getElementById('back-detalle').onclick = () => verResumenCampo(detalleSector);
   document.getElementById('detalle-titulo').textContent = `📊 ${detalleSector} — ${piscina}`;
   document.querySelectorAll('.periodo-btn').forEach((b,i)=>b.classList.toggle('active',i===0));
+  setCampoBg(detalleSector);
   irA('v-detalle');
   const rc = await fetch(`/api/corridas?sector=${encodeURIComponent(detalleSector)}&piscina=${encodeURIComponent(piscina)}`);
   const dc = await rc.json();
