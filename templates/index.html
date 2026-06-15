@@ -363,7 +363,7 @@ function renderDashboard(resumen, fecha) {
         (p.ultimo?.oxigeno_am != null && p.ultimo.oxigeno_am < 3.5) ||
         (p.ultimo?.oxigeno_pm != null && p.ultimo.oxigeno_pm < 3.5)
       );
-      if (pisAlertas.length) {
+      if (pisAlertas.length && c.campo !== FIMASA3) {
         // Tabla de piscinas con alertas estilo resumen
         let tablaPs = `<div style="margin-top:8px;overflow-x:auto">
           <table style="width:100%;border-collapse:collapse;font-size:12px;border:1px solid #e5e7eb">
