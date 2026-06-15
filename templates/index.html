@@ -210,7 +210,8 @@ td{padding:8px;border-bottom:1px solid #f3f4f6;color:#111}
     <div id="foto-estado"></div>
     <button class="btn btn-green" id="btnEnviar" onclick="enviarFoto()" disabled>📤 Procesar y enviar alertas</button>
     <button class="btn btn-outline" id="btnNueva" onclick="resetFoto()" style="display:none">📷 Subir otra foto</button>
-    <button class="btn btn-outline" id="btnDescargar" onclick="descargarResumen()" style="display:none;margin-top:8px;border-color:#6366f1;color:#6366f1">📥 Descargar resumen</button>
+    <button class="btn btn-outline" id="btnOtraFoto" onclick="otraFotoMismoCampo()" style="display:none;margin-top:8px;border-color:#0891b2;color:#0891b2">📷 Subir otra foto del mismo campo</button>
+    <button class="btn btn-outline" id="btnDescargar" onclick="descargarResumen()" style="display:none;margin-top:8px;border-color:#6366f1;color:#6366f1">📥 Finalizar y descargar resumen</button>
   </div>
 </div>
 
@@ -265,6 +266,8 @@ let detalleCorrida = null;
 let todasCorridas = [];
 let charts = {};
 let histOrigen = null;
+let piscinasAcumuladas = [];
+let sectorActual = '';
 
 function irA(vid) {
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
@@ -836,8 +839,20 @@ async function enviarFoto(){
     const r=await fetch('/api/procesar',{method:'POST',body:form});
     const d=await r.json();
     if(!r.ok||d.error)throw new Error(d.error||'Error');
-    mostrarResultado(d);
+    // Acumular piscinas de todas las fotos del mismo campo
+    if (sectorActual !== d.sector) {
+      piscinasAcumuladas = [];
+      sectorActual = d.sector;
+    }
+    d.piscinas.forEach(p => {
+      const existe = piscinasAcumuladas.findIndex(x => x.ps === p.ps && x.tipo === (p.tipo||'piscina'));
+      if (existe >= 0) piscinasAcumuladas[existe] = p;
+      else piscinasAcumuladas.push(p);
+    });
+    const dAcumulado = {...d, piscinas: piscinasAcumuladas};
+    mostrarResultado(dAcumulado);
     document.getElementById('btnNueva').style.display='flex';
+    document.getElementById('btnOtraFoto').style.display='flex';
     document.getElementById('btnEnviar').style.display='none';
     document.getElementById('btnDescargar').style.display='flex';
   }catch(e){
@@ -1143,13 +1158,37 @@ function descargarResumen() {
 
 function estO2(v){if(v===null||v===undefined)return 'n';return v<2.9?'c':v<3.5?'v':'n';}
 
-function resetFoto(){
+function otraFotoMismoCampo(){
+  // Mantiene datos acumulados, solo resetea la foto para subir otra
   archivoFoto=null;
   document.getElementById('previewWrap').style.display='none';
   document.getElementById('foto-source-grid').style.display='grid';
   document.getElementById('btnEnviar').style.display='flex';
   document.getElementById('btnEnviar').disabled=true;
   document.getElementById('btnNueva').style.display='none';
+  document.getElementById('btnOtraFoto').style.display='none';
+  document.getElementById('btnDescargar').style.display='none';
+  document.getElementById('fileInputCamera').value='';
+  document.getElementById('fileInputGallery').value='';
+  // Mantener el resumen acumulado visible
+  const estadoEl = document.getElementById('foto-estado');
+  estadoEl.innerHTML = `<div class="estado ok" style="padding:12px;text-align:center">
+    <p style="font-size:13px;color:#0F6E56;font-weight:600">Datos de ${piscinasAcumuladas.length} piscinas acumulados para ${sectorActual}</p>
+    <p style="font-size:12px;color:#6b7280">Sube la siguiente foto del mismo campo</p>
+  </div>`;
+}
+
+function resetFoto(){
+  // Reset completo — limpia datos acumulados
+  archivoFoto=null;
+  piscinasAcumuladas=[];
+  sectorActual='';
+  document.getElementById('previewWrap').style.display='none';
+  document.getElementById('foto-source-grid').style.display='grid';
+  document.getElementById('btnEnviar').style.display='flex';
+  document.getElementById('btnEnviar').disabled=true;
+  document.getElementById('btnNueva').style.display='none';
+  document.getElementById('btnOtraFoto').style.display='none';
   document.getElementById('fileInputCamera').value='';
   document.getElementById('fileInputGallery').value='';
   document.getElementById('btnDescargar').style.display='none';
