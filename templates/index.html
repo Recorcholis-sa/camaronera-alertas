@@ -1083,9 +1083,7 @@ function descargarResumen() {
 
       // Estado badge
       ctx.fillStyle = estadoColor;
-      ctx.beginPath();
-      ctx.roundRect(PADX+490, y+6, 90, 20, 6);
-      ctx.fill();
+      ctx.fillRect(PADX+490, y+6, 90, 20);
       ctx.fillStyle = 'white';
       ctx.font = 'bold 11px Arial';
       ctx.fillText(estadoTxt, PADX+500, y+20);
