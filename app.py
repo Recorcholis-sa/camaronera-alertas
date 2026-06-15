@@ -883,6 +883,32 @@ def construir_resumen_gerencia_completo(fecha):
       <div style="background:#f9fafb;padding:10px;text-align:center;font-size:11px;color:#9ca3af;border-radius:0 0 12px 12px;border:1px solid #e5e7eb;border-top:none">Sistema de Alertas Camaronera Recorcholis S.A.</div>
     </div>"""
 
+    # Bloque oculto para WhatsApp (leido por Google Apps Script)
+    wa_campos = []
+    for campo in CAMPOS:
+        criticas_wa = []
+        # Buscar piscinas criticas de este campo
+        for info in campos_alerta:
+            if info["campo"] == campo:
+                for p in info["ps_data"] + info["pr_data"]:
+                    u = p["ultimo"]
+                    if not u: continue
+                    o2am = u.get("oxigeno_am")
+                    o2pm = u.get("oxigeno_pm")
+                    if o2am is not None and o2am < O2_CRITICO:
+                        criticas_wa.append({"piscina": p["piscina"], "o2": str(o2am)})
+                    elif o2pm is not None and o2pm < O2_CRITICO:
+                        criticas_wa.append({"piscina": p["piscina"], "o2": str(o2pm)})
+        wa_campos.append({"nombre": campo, "criticas": criticas_wa})
+
+    import json as _json
+    wa_json = _json.dumps({"fecha": fecha, "campos": wa_campos}, ensure_ascii=False)
+    wa_block = f'''<div style="display:none">[WA_ALERT]
+{wa_json}
+[/WA_ALERT]</div>'''
+
+    html = wa_block + html
+
     cuerpo = f"{nivel_texto} — {fecha} | Criticas: {total_criticos} | Vigilancia: {total_vigilancia} | Sin novedad: {len(campos_normal)}"
     return asunto, cuerpo, html
 
