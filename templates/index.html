@@ -705,16 +705,17 @@ const ultimaFecha = fechasOrdenadas.length ? fechasOrdenadas[0] : '';
     if (f3ps.length) {
       const avg = (key) => { const v = f3ps.map(r=>r.dato[key]).filter(x=>x!=null); return v.length ? (v.reduce((a,b)=>a+b,0)/v.length).toFixed(2) : '—'; };
       const avgt = (key) => { const v = f3ps.map(r=>r.dato[key]).filter(x=>x!=null); return v.length ? (v.reduce((a,b)=>a+b,0)/v.length).toFixed(1) : '—'; };
-      html += `<div class="prom-box" style="flex-wrap:wrap;gap:8px;margin-top:8px">
-        <div class="prom-item" style="min-width:70px"><div style="font-size:10px;font-weight:700;color:#0369a1;margin-bottom:4px">00:30</div><div class="prom-val">\${avg('oxigeno_00')}</div><div class="prom-lbl">O2 mg/L</div></div>
-        <div class="prom-item" style="min-width:70px"><div style="font-size:10px;color:#6b7280;margin-bottom:4px">&nbsp;</div><div class="prom-val" style="color:#f59e0b">\${avgt('temp_00')}</div><div class="prom-lbl">T C</div></div>
-        <div class="prom-item" style="min-width:70px"><div style="font-size:10px;font-weight:700;color:#0369a1;margin-bottom:4px">02:30</div><div class="prom-val">\${avg('oxigeno_02')}</div><div class="prom-lbl">O2 mg/L</div></div>
-        <div class="prom-item" style="min-width:70px"><div style="font-size:10px;color:#6b7280;margin-bottom:4px">&nbsp;</div><div class="prom-val" style="color:#f59e0b">\${avgt('temp_02')}</div><div class="prom-lbl">T C</div></div>
-        <div class="prom-item" style="min-width:70px"><div style="font-size:10px;font-weight:700;color:#0369a1;margin-bottom:4px">05:00</div><div class="prom-val">\${avg('oxigeno_am')}</div><div class="prom-lbl">O2 mg/L</div></div>
-        <div class="prom-item" style="min-width:70px"><div style="font-size:10px;color:#6b7280;margin-bottom:4px">&nbsp;</div><div class="prom-val" style="color:#f59e0b">\${avgt('temp_am')}</div><div class="prom-lbl">T C</div></div>
-        <div class="prom-item" style="min-width:70px"><div style="font-size:10px;font-weight:700;color:#7c3aed;margin-bottom:4px">16:00</div><div class="prom-val" style="color:#7c3aed">\${avg('oxigeno_pm')}</div><div class="prom-lbl">O2 mg/L</div></div>
-        <div class="prom-item" style="min-width:70px"><div style="font-size:10px;color:#6b7280;margin-bottom:4px">&nbsp;</div><div class="prom-val" style="color:#ef4444">\${avgt('temp_pm')}</div><div class="prom-lbl">T C</div></div>
-      </div>`;
+      const p00=avg('oxigeno_00'),t00=avgt('temp_00'),p02=avg('oxigeno_02'),t02=avgt('temp_02'),p05=avg('oxigeno_am'),t05=avgt('temp_am'),p16=avg('oxigeno_pm'),t16=avgt('temp_pm');
+      html += '<div class="prom-box" style="flex-wrap:wrap;gap:8px;margin-top:8px">'
+        +'<div class="prom-item" style="min-width:70px"><div style="font-size:10px;font-weight:700;color:#0369a1;margin-bottom:4px">00:30</div><div class="prom-val">'+p00+'</div><div class="prom-lbl">O2 mg/L</div></div>'
+        +'<div class="prom-item" style="min-width:70px"><div style="font-size:10px;color:#6b7280;margin-bottom:4px">&nbsp;</div><div class="prom-val" style="color:#f59e0b">'+t00+'</div><div class="prom-lbl">T C</div></div>'
+        +'<div class="prom-item" style="min-width:70px"><div style="font-size:10px;font-weight:700;color:#0369a1;margin-bottom:4px">02:30</div><div class="prom-val">'+p02+'</div><div class="prom-lbl">O2 mg/L</div></div>'
+        +'<div class="prom-item" style="min-width:70px"><div style="font-size:10px;color:#6b7280;margin-bottom:4px">&nbsp;</div><div class="prom-val" style="color:#f59e0b">'+t02+'</div><div class="prom-lbl">T C</div></div>'
+        +'<div class="prom-item" style="min-width:70px"><div style="font-size:10px;font-weight:700;color:#0369a1;margin-bottom:4px">05:00</div><div class="prom-val">'+p05+'</div><div class="prom-lbl">O2 mg/L</div></div>'
+        +'<div class="prom-item" style="min-width:70px"><div style="font-size:10px;color:#6b7280;margin-bottom:4px">&nbsp;</div><div class="prom-val" style="color:#f59e0b">'+t05+'</div><div class="prom-lbl">T C</div></div>'
+        +'<div class="prom-item" style="min-width:70px"><div style="font-size:10px;font-weight:700;color:#7c3aed;margin-bottom:4px">16:00</div><div class="prom-val" style="color:#7c3aed">'+p16+'</div><div class="prom-lbl">O2 mg/L</div></div>'
+        +'<div class="prom-item" style="min-width:70px"><div style="font-size:10px;color:#6b7280;margin-bottom:4px">&nbsp;</div><div class="prom-val" style="color:#ef4444">'+t16+'</div><div class="prom-lbl">T C</div></div>'
+        +'</div>';
     }
   } else {
     if (rPs.length) {
