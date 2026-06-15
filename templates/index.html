@@ -1151,7 +1151,7 @@ function descargarResumen() {
   canvas.toBlob(function(blob) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.download = 'resumen_' + sector.replace(/ /g,'_') + '_' + fecha.replace(/\/g,'-') + '.png';
+    link.download = 'resumen_' + sector.split(' ').join('_') + '_' + fecha.split('/').join('-') + '.png';
     link.href = url;
     document.body.appendChild(link);
     link.click();
