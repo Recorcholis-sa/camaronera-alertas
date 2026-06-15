@@ -296,8 +296,31 @@ def procesar():
         return jsonify({"error": "No se recibio foto"}), 400
     archivo = request.files["foto"]
     campo   = request.form.get("campo", "")
-    imagen_b64 = base64.b64encode(archivo.read()).decode()
-    mime = archivo.content_type or "image/jpeg"
+    # Comprimir imagen si es muy grande (max 1600px, calidad 85)
+    try:
+        from PIL import Image
+        import io
+        img_bytes = archivo.read()
+        img = Image.open(io.BytesIO(img_bytes))
+        # Convertir a RGB si es necesario
+        if img.mode in ('RGBA', 'P'):
+            img = img.convert('RGB')
+        # Redimensionar si es muy grande
+        max_size = 1600
+        if img.width > max_size or img.height > max_size:
+            img.thumbnail((max_size, max_size), Image.LANCZOS)
+        # Guardar comprimida
+        output = io.BytesIO()
+        img.save(output, format='JPEG', quality=85, optimize=True)
+        img_bytes = output.getvalue()
+        imagen_b64 = base64.b64encode(img_bytes).decode()
+        mime = "image/jpeg"
+        print(f"Imagen comprimida: {len(img_bytes)//1024}KB")
+    except Exception as e:
+        print(f"No se pudo comprimir imagen: {e}, usando original")
+        archivo.seek(0)
+        imagen_b64 = base64.b64encode(archivo.read()).decode()
+        mime = archivo.content_type or "image/jpeg"
     try:
         print("Llamando a IA...")
         datos = extraer_con_ia(imagen_b64, mime, campo)
