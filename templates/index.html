@@ -210,6 +210,7 @@ td{padding:8px;border-bottom:1px solid #f3f4f6;color:#111}
     <div id="foto-estado"></div>
     <button class="btn btn-green" id="btnEnviar" onclick="enviarFoto()" disabled>📤 Procesar y enviar alertas</button>
     <button class="btn btn-outline" id="btnNueva" onclick="resetFoto()" style="display:none">📷 Subir otra foto</button>
+    <button class="btn btn-outline" id="btnDescargar" onclick="descargarResumen()" style="display:none;margin-top:8px;border-color:#6366f1;color:#6366f1">📥 Descargar resumen</button>
   </div>
 </div>
 
@@ -838,6 +839,7 @@ async function enviarFoto(){
     mostrarResultado(d);
     document.getElementById('btnNueva').style.display='flex';
     document.getElementById('btnEnviar').style.display='none';
+    document.getElementById('btnDescargar').style.display='flex';
   }catch(e){
     mostrarEstado('foto-estado','err','❌ '+(e.message||'Error al procesar.'));
     document.getElementById('btnEnviar').disabled=false;
@@ -908,6 +910,7 @@ function mostrarResultado(d){
     html += `</div>`;
   }
 
+  window._ultimoResultado = d;
   document.getElementById('foto-estado').innerHTML = html;
 }
 
@@ -961,6 +964,183 @@ function tablaF3Resultado(piscinas, titulo) {
       </thead><tbody>${filas}</tbody></table></div>`;
 }
 
+function descargarResumen() {
+  const estado = document.getElementById('foto-estado');
+  if (!estado || !window._ultimoResultado) return;
+  const d = window._ultimoResultado;
+  const piscinas = d.piscinas || [];
+  const sector = d.sector || '';
+  const fecha = d.fecha || '';
+  const esFimasa3 = sector === FIMASA3;
+
+  const ps  = piscinas.filter(p => (p.tipo||'piscina') === 'piscina');
+  const pr  = piscinas.filter(p => p.tipo === 'precria');
+  const res = piscinas.filter(p => p.tipo === 'reservorio');
+
+  const canvas = document.createElement('canvas');
+  const W = 720;
+  const ROWH = 32;
+  const PADX = 20;
+  const HEADERH = 80;
+  const SECH = 36;
+  const PROMH = 70;
+
+  // Calculate height
+  let totalRows = ps.length + pr.length + res.length;
+  let sections = 0;
+  if (ps.length) sections++;
+  if (pr.length) sections++;
+  if (res.length) sections++;
+  const height = HEADERH + (sections * SECH) + (totalRows * ROWH) + PROMH + 40;
+  canvas.width = W;
+  canvas.height = height;
+
+  const ctx = canvas.getContext('2d');
+
+  // Background
+  ctx.fillStyle = '#f0f4f2';
+  ctx.fillRect(0, 0, W, height);
+
+  // Header
+  ctx.fillStyle = '#0F6E56';
+  ctx.fillRect(0, 0, W, HEADERH);
+  ctx.fillStyle = 'white';
+  ctx.font = 'bold 22px Arial';
+  ctx.fillText('Camaronera Alertas — ' + sector, PADX, 32);
+  ctx.font = '15px Arial';
+  ctx.fillText('Fecha: ' + fecha + '   Piscinas: ' + ps.length + (pr.length ? '   Precrias: ' + pr.length : '') + (res.length ? '   Reservorio: ' + res.length : ''), PADX, 58);
+
+  let y = HEADERH + 10;
+
+  function drawSeccion(lista, titulo, color) {
+    if (!lista.length) return;
+    // Section header
+    ctx.fillStyle = color;
+    ctx.fillRect(PADX, y, W - PADX*2, SECH - 4);
+    ctx.fillStyle = 'white';
+    ctx.font = 'bold 14px Arial';
+    ctx.fillText(titulo, PADX + 10, y + 22);
+    y += SECH;
+
+    // Table header
+    ctx.fillStyle = '#f9fafb';
+    ctx.fillRect(PADX, y, W - PADX*2, ROWH);
+    ctx.fillStyle = '#6b7280';
+    ctx.font = 'bold 12px Arial';
+    const cols = esFimasa3
+      ? [{l:'PS',x:30},{l:'O₂ 00:30',x:100},{l:'O₂ 02:30',x:200},{l:'O₂ 05:00',x:300},{l:'T° 05:00',x:400},{l:'Estado',x:520}]
+      : [{l:'PS',x:30},{l:'O₂ AM',x:100},{l:'O₂ PM',x:200},{l:'T° AM',x:300},{l:'T° PM',x:400},{l:'Estado',x:500}];
+    cols.forEach(c => ctx.fillText(c.l, PADX + c.x, y + 20));
+    y += ROWH;
+
+    // Rows
+    lista.forEach((p, i) => {
+      ctx.fillStyle = i % 2 === 0 ? 'white' : '#f9fafb';
+      ctx.fillRect(PADX, y, W - PADX*2, ROWH);
+
+      // Estado color
+      let eAM, ePM, worst;
+      if (esFimasa3) {
+        const vals = [p.oxigeno_00, p.oxigeno_02, p.oxigeno_am].filter(v=>v!=null);
+        const min = vals.length ? Math.min(...vals) : null;
+        worst = min != null ? (min < 2.9 ? 'c' : min < 3.5 ? 'v' : 'n') : 'n';
+      } else {
+        eAM = estO2(p.oxigeno_am); ePM = estO2(p.oxigeno_pm);
+        worst = eAM==='c'||ePM==='c' ? 'c' : eAM==='v'||ePM==='v' ? 'v' : 'n';
+      }
+      const estadoColor = {c:'#dc2626', v:'#d97706', n:'#16a34a'}[worst];
+      const estadoTxt   = {c:'Critico', v:'Vigilancia', n:'Normal'}[worst];
+
+      ctx.fillStyle = '#111';
+      ctx.font = 'bold 13px Arial';
+      ctx.fillText(p.ps, PADX + 30, y + 21);
+      ctx.font = '13px Arial';
+
+      if (esFimasa3) {
+        ctx.fillStyle = o2Color(p.oxigeno_00); ctx.fillText(p.oxigeno_00??'—', PADX+100, y+21);
+        ctx.fillStyle = o2Color(p.oxigeno_02); ctx.fillText(p.oxigeno_02??'—', PADX+200, y+21);
+        ctx.fillStyle = o2Color(p.oxigeno_am); ctx.fillText(p.oxigeno_am??'—', PADX+300, y+21);
+        ctx.fillStyle = '#374151'; ctx.fillText(p.temp_am??'—', PADX+400, y+21);
+      } else {
+        ctx.fillStyle = o2Color(p.oxigeno_am); ctx.fillText(p.oxigeno_am??'—', PADX+100, y+21);
+        ctx.fillStyle = o2Color(p.oxigeno_pm); ctx.fillText(p.oxigeno_pm??'—', PADX+200, y+21);
+        ctx.fillStyle = '#374151'; ctx.fillText(p.temp_am??'—', PADX+300, y+21);
+        ctx.fillStyle = '#374151'; ctx.fillText(p.temp_pm??'—', PADX+400, y+21);
+      }
+
+      // Estado badge
+      ctx.fillStyle = estadoColor;
+      ctx.beginPath();
+      ctx.roundRect(PADX+490, y+6, 90, 20, 6);
+      ctx.fill();
+      ctx.fillStyle = 'white';
+      ctx.font = 'bold 11px Arial';
+      ctx.fillText(estadoTxt, PADX+500, y+20);
+      y += ROWH;
+    });
+  }
+
+  function o2Color(v) {
+    if (v == null) return '#9ca3af';
+    if (v < 2.9) return '#dc2626';
+    if (v < 3.5) return '#d97706';
+    return '#065f46';
+  }
+
+  drawSeccion(ps, 'PISCINAS', '#0F6E56');
+
+  // Promedios piscinas
+  if (ps.length) {
+    const o2amV = ps.filter(p=>p.oxigeno_am!=null).map(p=>p.oxigeno_am);
+    const o2pmV = ps.filter(p=>p.oxigeno_pm!=null).map(p=>p.oxigeno_pm);
+    const tamV  = ps.filter(p=>p.temp_am!=null).map(p=>p.temp_am);
+    const tpmV  = ps.filter(p=>p.temp_pm!=null).map(p=>p.temp_pm);
+    const pAM  = o2amV.length ? (o2amV.reduce((a,b)=>a+b,0)/o2amV.length).toFixed(2) : '—';
+    const pPM  = o2pmV.length ? (o2pmV.reduce((a,b)=>a+b,0)/o2pmV.length).toFixed(2) : '—';
+    const pTAM = tamV.length  ? (tamV.reduce((a,b)=>a+b,0)/tamV.length).toFixed(1)   : '—';
+    const pTPM = tpmV.length  ? (tpmV.reduce((a,b)=>a+b,0)/tpmV.length).toFixed(1)   : '—';
+
+    ctx.fillStyle = '#f0fdf4';
+    ctx.fillRect(PADX, y, W - PADX*2, PROMH - 10);
+    ctx.strokeStyle = '#86efac';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(PADX, y, W - PADX*2, PROMH - 10);
+    ctx.fillStyle = '#374151';
+    ctx.font = 'bold 12px Arial';
+    ctx.fillText('PROMEDIOS PISCINAS', PADX+10, y+18);
+    ctx.font = 'bold 16px Arial';
+    const promCols = [
+      {val:pAM, lbl:'O₂ AM mg/L', x:50, color:'#1D9E75'},
+      {val:pPM, lbl:'O₂ PM mg/L', x:220, color:'#0F6E56'},
+      {val:pTAM, lbl:'T° AM °C', x:390, color:'#f59e0b'},
+      {val:pTPM, lbl:'T° PM °C', x:550, color:'#ef4444'},
+    ];
+    promCols.forEach(pc => {
+      ctx.fillStyle = pc.color;
+      ctx.font = 'bold 18px Arial';
+      ctx.fillText(pc.val, PADX + pc.x, y + 42);
+      ctx.fillStyle = '#6b7280';
+      ctx.font = '11px Arial';
+      ctx.fillText(pc.lbl, PADX + pc.x, y + 56);
+    });
+    y += PROMH;
+  }
+
+  drawSeccion(pr, 'PRECRIAS', '#6366f1');
+  drawSeccion(res, 'RESERVORIO', '#0891b2');
+
+  // Footer
+  ctx.fillStyle = '#6b7280';
+  ctx.font = '11px Arial';
+  ctx.fillText('Sistema de Alertas Camaronera Recorcholis S.A.', PADX, y + 20);
+
+  // Download
+  const link = document.createElement('a');
+  link.download = `resumen_${sector.replace(/ /g,'_')}_${fecha.replace(/\//g,'-')}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
 function estO2(v){if(v===null||v===undefined)return 'n';return v<2.9?'c':v<3.5?'v':'n';}
 
 function resetFoto(){
@@ -972,6 +1152,7 @@ function resetFoto(){
   document.getElementById('btnNueva').style.display='none';
   document.getElementById('fileInputCamera').value='';
   document.getElementById('fileInputGallery').value='';
+  document.getElementById('btnDescargar').style.display='none';
   document.getElementById('foto-estado').innerHTML='';
 }
 
