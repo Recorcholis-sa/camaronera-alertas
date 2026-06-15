@@ -544,7 +544,7 @@ def extraer_con_ia(imagen_b64, mime, campo=""):
             "Si en alguna posicion el valor no existe o es ilegible usa null. "
             "El block puede tener 3 secciones separadas por palabras escritas: PRECRIAS y RESERVORIO. "
             "Asigna tipo segun la seccion: antes de PRECRIAS = tipo piscina, bajo PRECRIAS = tipo precria, bajo RESERVORIO = tipo reservorio. "
-            "En la seccion PRECRIAS puede aparecer Pre antes del numero en columna PS. Ignorala y usa solo el numero. "
+            "En la seccion PRECRIAS puede aparecer Pre, pre, Pc, pc u otras siglas antes del numero en columna PS. Ignoralas y usa solo el numero. "
             "Lee cada valor DOS VECES verificando digito por digito. "
             "Rangos tipicos: oxigeno 1.0-15.0 mg/L, temperatura 20.0-35.0 grados C. "
             "Si un valor es ilegible usa null. "
@@ -565,7 +565,7 @@ def extraer_con_ia(imagen_b64, mime, campo=""):
             "filas antes de PRECRIAS = tipo piscina, "
             "filas despues de PRECRIAS y antes de RESERVORIO = tipo precria, "
             "filas despues de RESERVORIO = tipo reservorio. "
-            "Si no hay secciones PRECRIAS ni RESERVORIO, todas son tipo piscina. " "En la columna PS de las precrias puede aparecer la palabra Pre o pre antes del numero (ej: Pre 1, pre 1). " "Ignora esa palabra y usa solo el numero como codigo de piscina (ej: Pre 1 = ps 1, pre 10 = ps 10). "
+            "Si no hay secciones PRECRIAS ni RESERVORIO, todas son tipo piscina. " "En la columna PS de las precrias puede aparecer Pre, pre, Pc, pc u otras siglas antes del numero (ej: Pre 1, Pc 2). Ignoralas y usa solo el numero (ej: Pre 1 = ps 1, Pc 2 = ps 2). "
             "Devuelve SOLO JSON valido sin texto extra ni explicaciones: "
             '{"sector":"nombre","piscinas":[{"ps":"codigo","tipo":"piscina","oxigeno_am":3.5,"oxigeno_pm":3.2,"temp_am":28.1,"temp_pm":27.8}]}'
         )
