@@ -607,8 +607,13 @@ def extraer_con_ia(imagen_b64, mime, campo=""):
         data=json.dumps(payload).encode(),
         headers={"Content-Type":"application/json","x-api-key":ANTHROPIC_API_KEY,"anthropic-version":"2023-06-01"}
     )
-    with urllib.request.urlopen(req, timeout=60) as r:
-        resp = json.loads(r.read())
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            resp = json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        err_body = e.read().decode()
+        print(f"Anthropic API error {e.code}: {err_body}")
+        raise Exception(f"HTTP Error {e.code}: {err_body}")
     text = "".join(b.get("text","") for b in resp["content"]).strip()
     if "```" in text:
         text = text.split("```")[1].replace("json","").strip()
