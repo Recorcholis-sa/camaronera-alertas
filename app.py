@@ -629,27 +629,24 @@ def extraer_con_ia(imagen_b64, mime, campo=""):
         raise Exception(f"HTTP Error {e.code}: {err_body}")
 
     text = resp["candidates"][0]["content"]["parts"][0]["text"].strip()
-    print(f"Gemini raw response (primeros 200 chars): {text[:200]}")
-    # Limpiar markdown
-    if "```" in text:
-        parts = text.split("```")
-        for part in parts:
-            part = part.strip()
-            if part.startswith("json"):
-                part = part[4:].strip()
-            if part.startswith("{"):
-                text = part
-                break
-    # Extraer JSON
-    start_idx = text.find("{")
-    end_idx   = text.rfind("}") + 1
-    if start_idx >= 0 and end_idx > start_idx:
-        text = text[start_idx:end_idx]
-    # Remover comentarios y comas finales
+    print(f"Gemini raw response (primeros 300 chars): {text[:300]}")
+    # Extraer JSON del bloque markdown si existe
     import re as _re
-    text = _re.sub(r'//[^\n]*', '', text)
-    text = _re.sub(r',\s*([}\]])', r'\1', text)
-    print(f"JSON limpio (primeros 200 chars): {text[:200]}")
+    # Buscar bloque ```json ... ```
+    match = _re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, _re.DOTALL)
+    if match:
+        text = match.group(1)
+    else:
+        # Sin markdown: extraer desde { hasta }
+        start_idx = text.find("{")
+        end_idx   = text.rfind("}") + 1
+        if start_idx >= 0 and end_idx > start_idx:
+            text = text[start_idx:end_idx]
+    # Remover comentarios // 
+    text = _re.sub(r"//[^\n]*", "", text)
+    # Remover comas finales antes de } o ]
+    text = _re.sub(r",\s*([}\]])", r"\1", text)
+    print(f"JSON limpio (primeros 300 chars): {text[:300]}")
     return json.loads(text)
 
 def estado_o2(v):
