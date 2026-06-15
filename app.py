@@ -611,7 +611,7 @@ def extraer_con_ia(imagen_b64, mime, campo=""):
         }],
         "generationConfig": {
             "temperature": 0.1,
-            "maxOutputTokens": 4000
+            "maxOutputTokens": 8192
         }
     }
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
@@ -646,7 +646,22 @@ def extraer_con_ia(imagen_b64, mime, campo=""):
     except Exception as e:
         print(f"JSON parse error: {e}")
         print("JSON que fallo: " + text[:500])
-        raise
+        # Intentar reparar JSON incompleto agregando cierres faltantes
+        fixed = text.rstrip()
+        # Contar llaves y corchetes abiertos
+        opens_brace  = fixed.count('{') - fixed.count('}')
+        opens_bracket = fixed.count('[') - fixed.count(']')
+        # Remover coma final si existe
+        if fixed.endswith(','):
+            fixed = fixed[:-1]
+        # Cerrar estructuras abiertas
+        fixed += ']' * opens_bracket + '}' * opens_brace
+        try:
+            print("Intentando con JSON reparado...")
+            return json.loads(fixed)
+        except Exception as e2:
+            print(f"JSON reparado error: {e2}")
+            raise e
 
 def estado_o2(v):
     if v is None: return "normal"
