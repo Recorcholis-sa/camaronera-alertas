@@ -524,15 +524,22 @@ def extraer_con_ia(imagen_b64, mime, campo=""):
     if campo == FIMASA3:
         prompt = (
             "Eres un experto leyendo hojas de parametros de piscinas camaroneras de FIMASA SECTOR 3. "
-            "Este block tiene columnas que registran 4 mediciones por piscina usando nombres de columna enganosos. "
-            "Las 4 mediciones y como leerlas son: "
-            "MEDICION 00:30 (oxigeno_00 = columna OXIGENO AM, temp_00 = columna TEMPERATURA AM). "
-            "MEDICION 02:30 (oxigeno_02 = columna OXIGENO PM, temp_02 = columna TEMPERATURA PM). "
-            "MEDICION 05:00 (oxigeno_am = columna TB CM, temp_am = columna COLOR). "
-            "MEDICION 16:00 (oxigeno_pm = columna ENT bajo CALIBRACION, temp_pm = columna SALID bajo CALIBRACION). "
-            "El orden de columnas de izquierda a derecha es: PS, OXIGENO AM, OXIGENO PM, TEMPERATURA AM, TEMPERATURA PM, TB CM, COLOR, ENT, SALID. "
+            "Ignora completamente los encabezados del block. "
+            "En cada fila, despues del numero de piscina (PS), hay exactamente 8 valores numericos en orden. "
+            "Asigna esos 8 valores estrictamente por posicion: "
+            "1er valor = oxigeno_00 (medicion 00:30). "
+            "2do valor = temp_00 (medicion 00:30). "
+            "3er valor = oxigeno_02 (medicion 02:30). "
+            "4to valor = temp_02 (medicion 02:30). "
+            "5to valor = oxigeno_am (medicion 05:00). "
+            "6to valor = temp_am (medicion 05:00). "
+            "7mo valor = oxigeno_pm (medicion 16:00). "
+            "8vo valor = temp_pm (medicion 16:00). "
+            "Los rangos te ayudan a distinguir oxigeno de temperatura: oxigeno entre 1.0 y 15.0 mg/L, temperatura entre 20.0 y 35.0 grados C. "
+            "Si en alguna posicion el valor no existe o es ilegible usa null. "
             "El block puede tener 3 secciones separadas por palabras escritas: PRECRIAS y RESERVORIO. "
-            "Asigna tipo segun la seccion: piscinas normales = tipo piscina, bajo PRECRIAS = tipo precria, bajo RESERVORIO = tipo reservorio. "
+            "Asigna tipo segun la seccion: antes de PRECRIAS = tipo piscina, bajo PRECRIAS = tipo precria, bajo RESERVORIO = tipo reservorio. "
+            "En la seccion PRECRIAS puede aparecer Pre antes del numero en columna PS. Ignorala y usa solo el numero. "
             "Lee cada valor DOS VECES verificando digito por digito. "
             "Rangos tipicos: oxigeno 1.0-15.0 mg/L, temperatura 20.0-35.0 grados C. "
             "Si un valor es ilegible usa null. "
@@ -1018,10 +1025,49 @@ def construir_html_biologo_fimasa3(sector, alertas_data, todas_piscinas, fecha):
         {tabla_f3(criticos, "CRITICAS — O2 menor a 2.9 mg/L", "#dc2626")}
         {tabla_f3(vigilancia, "VIGILANCIA — O2 entre 2.9 y 3.5 mg/L", "#d97706")}
         {tabla_f3(normales, "PISCINAS NORMALES", "#16a34a")}
+        {bloque_promedios_fimasa3(ps_todas)}
       </div>
       <div style="background:#f9fafb;padding:10px;text-align:center;font-size:11px;color:#9ca3af;border-radius:0 0 12px 12px;border:1px solid #e5e7eb;border-top:none">Sistema de Alertas Camaronera Recorcholis S.A.</div>
     </div>"""
     return html
+
+def bloque_promedios_fimasa3(piscinas):
+    """Bloque de promedios para Fimasa 3 con las 4 mediciones."""
+    def prom(lst, key):
+        vals = [p.get(key) for p in lst if p.get(key) is not None]
+        return round(sum(vals)/len(vals), 2) if vals else "—"
+    def promt(lst, key):
+        vals = [p.get(key) for p in lst if p.get(key) is not None]
+        return round(sum(vals)/len(vals), 1) if vals else "—"
+    p00 = prom(piscinas, "oxigeno_00"); t00 = promt(piscinas, "temp_00")
+    p02 = prom(piscinas, "oxigeno_02"); t02 = promt(piscinas, "temp_02")
+    pam = prom(piscinas, "oxigeno_am"); tam = promt(piscinas, "temp_am")
+    ppm = prom(piscinas, "oxigeno_pm"); tpm = promt(piscinas, "temp_pm")
+    return f"""<div style="background:#f9fafb;border-radius:8px;padding:14px;margin-top:8px;margin-bottom:16px">
+      <div style="font-weight:700;color:#374151;margin-bottom:10px;font-size:13px">PROMEDIOS PISCINAS</div>
+      <table style="width:100%;text-align:center">
+        <thead><tr>
+          <th style="font-size:10px;color:#0369a1;padding:4px">00:30</th>
+          <th style="font-size:10px;color:#6b7280;padding:4px"></th>
+          <th style="font-size:10px;color:#0369a1;padding:4px">02:30</th>
+          <th style="font-size:10px;color:#6b7280;padding:4px"></th>
+          <th style="font-size:10px;color:#0369a1;padding:4px">05:00</th>
+          <th style="font-size:10px;color:#6b7280;padding:4px"></th>
+          <th style="font-size:10px;color:#7c3aed;padding:4px">16:00</th>
+          <th style="font-size:10px;color:#6b7280;padding:4px"></th>
+        </tr></thead>
+        <tr>
+          <td style="padding:4px"><div style="font-size:17px;font-weight:700;color:#1D9E75">{p00}</div><div style="font-size:10px;color:#6b7280">O2 mg/L</div></td>
+          <td style="padding:4px"><div style="font-size:17px;font-weight:700;color:#f59e0b">{t00}</div><div style="font-size:10px;color:#6b7280">T C</div></td>
+          <td style="padding:4px"><div style="font-size:17px;font-weight:700;color:#1D9E75">{p02}</div><div style="font-size:10px;color:#6b7280">O2 mg/L</div></td>
+          <td style="padding:4px"><div style="font-size:17px;font-weight:700;color:#f59e0b">{t02}</div><div style="font-size:10px;color:#6b7280">T C</div></td>
+          <td style="padding:4px"><div style="font-size:17px;font-weight:700;color:#1D9E75">{pam}</div><div style="font-size:10px;color:#6b7280">O2 mg/L</div></td>
+          <td style="padding:4px"><div style="font-size:17px;font-weight:700;color:#f59e0b">{tam}</div><div style="font-size:10px;color:#6b7280">T C</div></td>
+          <td style="padding:4px"><div style="font-size:17px;font-weight:700;color:#7c3aed">{ppm}</div><div style="font-size:10px;color:#6b7280">O2 mg/L</div></td>
+          <td style="padding:4px"><div style="font-size:17px;font-weight:700;color:#ef4444">{tpm}</div><div style="font-size:10px;color:#6b7280">T C</div></td>
+        </tr>
+      </table>
+    </div>"""
 
 def enviar_email_postmark(dest_email, dest_nombre, asunto, cuerpo, html=None):
     try:
