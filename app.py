@@ -629,14 +629,31 @@ def extraer_con_ia(imagen_b64, mime, campo=""):
         raise Exception(f"HTTP Error {e.code}: {err_body}")
 
     text = resp["candidates"][0]["content"]["parts"][0]["text"].strip()
+    print(f"Gemini raw response (primeros 200 chars): {text[:200]}")
+    # Limpiar markdown
     if "```" in text:
-        text = text.split("```")[1].replace("json","").strip()
-        if "```" in text:
-            text = text.split("```")[0].strip()
+        parts = text.split("```")
+        for part in parts:
+            part = part.strip()
+            if part.startswith("json"):
+                part = part[4:].strip()
+            if part.startswith("{"):
+                text = part
+                break
+    # Extraer JSON
     start_idx = text.find("{")
     end_idx   = text.rfind("}") + 1
     if start_idx >= 0 and end_idx > start_idx:
         text = text[start_idx:end_idx]
+    # Remover comentarios // y /* */
+    import re
+    text = re.sub(r"//.*?
+", "
+", text)
+    text = re.sub(r"/\*.*?\*/", "", text, flags=re.DOTALL)
+    # Remover comas finales antes de } o ]
+    text = re.sub(r",\s*([}\]])", r"", text)
+    print(f"JSON limpio (primeros 200 chars): {text[:200]}")
     return json.loads(text)
 
 def estado_o2(v):
