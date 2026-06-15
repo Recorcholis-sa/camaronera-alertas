@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0F6E56">
-<title>Camaronera — Parámetros</title>
+<title>Camaronera Alertas</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -106,7 +106,6 @@ td{padding:8px;border-bottom:1px solid #f3f4f6;color:#111}
 .foto-source-btn:hover{border-color:#1D9E75;background:#f0fdf8}
 .foto-source-icon{font-size:32px}
 .foto-source-label{font-size:13px;font-weight:600;color:#374151}
-/* Secciones resumen */
 .seccion-titulo{font-weight:700;font-size:13px;padding:8px 12px;border-radius:8px 8px 0 0;color:white;margin-top:12px}
 .prom-box{background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:10px 14px;margin-top:4px;margin-bottom:8px;display:flex;gap:16px;flex-wrap:wrap}
 .prom-item{text-align:center;flex:1;min-width:60px}
@@ -117,7 +116,7 @@ td{padding:8px;border-bottom:1px solid #f3f4f6;color:#111}
 <body>
 
 <div class="logo">🦐</div>
-<h1>Parámetros Camaronera</h1>
+<h1>Camaronera Alertas</h1>
 <p class="sub">Recorcholis S.A.</p>
 
 <!-- VIEW 1: ROL -->
@@ -344,7 +343,6 @@ function renderDashboard(resumen, fecha) {
         <span class="stat-pill rg">${c.total - c.alertas} normal</span>
       </div>`;
 
-      // Promedios piscinas
       if (c.prom_o2_am != null || c.prom_o2_pm != null) {
         html += `<div class="prom-box">
           <div class="prom-item"><div class="prom-val">${c.prom_o2_am ?? '—'}</div><div class="prom-lbl">O₂ AM mg/L</div></div>
@@ -352,7 +350,6 @@ function renderDashboard(resumen, fecha) {
         </div>`;
       }
 
-      // Piscinas con alerta
       const soloPs = c.piscinas.filter(p => (p.tipo||'piscina') === 'piscina');
       const prPs   = c.piscinas.filter(p => (p.tipo||'piscina') === 'precria');
       const resPs  = c.piscinas.filter(p => (p.tipo||'piscina') === 'reservorio');
@@ -375,7 +372,6 @@ function renderDashboard(resumen, fecha) {
         html += `</div>`;
       }
 
-      // Precrias con alerta
       const prAlertas = prPs.filter(p =>
         (p.ultimo?.oxigeno_am != null && p.ultimo.oxigeno_am < 3.5) ||
         (p.ultimo?.oxigeno_pm != null && p.ultimo.oxigeno_pm < 3.5)
@@ -393,7 +389,6 @@ function renderDashboard(resumen, fecha) {
         html += `</div>`;
       }
 
-      // Reservorio si existe
       if (resPs.length) {
         html += `<div style="margin-top:6px;font-size:11px;color:#0891b2;border-top:1px dashed #e5e7eb;padding-top:4px">
           💧 ${resPs.length} punto(s) de reservorio registrado(s)
@@ -430,7 +425,6 @@ function renderSelectorCampos(containerId) {
   `;
 }
 
-// ── Helper: tabla resumen simple ───────────────────────────
 function tablaResumen(resultados, titulo, bgColor) {
   if (!resultados.length) return '';
   let filas = '';
@@ -489,7 +483,6 @@ async function verResumenCampo(sector) {
   const ultimaFecha = fechas.length ? fechas[fechas.length-1] : '';
   document.getElementById('resumen-fecha').textContent = ultimaFecha ? `Última lectura: ${ultimaFecha}` : '';
 
-  // Separar por tipo
   const rPs  = resultados.filter(r => !r.dato || (r.dato.tipo||'piscina') === 'piscina');
   const rPr  = resultados.filter(r => r.dato && r.dato.tipo === 'precria');
   const rRes = resultados.filter(r => r.dato && r.dato.tipo === 'reservorio');
@@ -497,7 +490,6 @@ async function verResumenCampo(sector) {
   let html = '';
 
   if (esFimasa3) {
-    // Tabla especial Fimasa 3
     html = `<div style="overflow-x:auto"><table>
       <thead>
         <tr style="background:#e0f2fe">
@@ -538,11 +530,8 @@ async function verResumenCampo(sector) {
     html += `</tbody></table></div>`;
     html += `<div style="margin-top:8px;font-size:11px;color:#7c3aed">🟣 16:00 = solo dashboard, no genera alerta</div>`;
   } else {
-    // Sección piscinas
     if (rPs.length) {
       html += tablaResumen(rPs, '🐟 PISCINAS', '#0F6E56');
-
-      // Promedios solo de piscinas
       const o2amVals = rPs.filter(r=>r.dato?.oxigeno_am!=null).map(r=>r.dato.oxigeno_am);
       const o2pmVals = rPs.filter(r=>r.dato?.oxigeno_pm!=null).map(r=>r.dato.oxigeno_pm);
       if (o2amVals.length || o2pmVals.length) {
@@ -554,15 +543,11 @@ async function verResumenCampo(sector) {
         </div>`;
       }
     }
-
-    // Sección precrias
     if (rPr.length) {
       html += `<div style="margin-top:12px;">`;
       html += tablaResumen(rPr, '🔵 PRECRIAS', '#6366f1');
       html += `</div>`;
     }
-
-    // Sección reservorio
     if (rRes.length) {
       html += `<div style="margin-top:12px;">`;
       html += tablaResumen(rRes, '💧 RESERVORIO', '#0891b2');
@@ -882,13 +867,11 @@ function mostrarResultado(d){
     </div>
   </div>`;
 
-  // Tabla piscinas
   if (ps.length) {
     if (esFimasa3) {
       html += tablaF3Resultado(ps, '🐟 PISCINAS');
     } else {
       html += tablaSimpleResultado(ps, '🐟 PISCINAS', '#0F6E56');
-      // Promedios
       const o2amV = ps.filter(p=>p.oxigeno_am!=null).map(p=>p.oxigeno_am);
       const o2pmV = ps.filter(p=>p.oxigeno_pm!=null).map(p=>p.oxigeno_pm);
       if (o2amV.length || o2pmV.length) {
@@ -899,14 +882,12 @@ function mostrarResultado(d){
     }
   }
 
-  // Tabla precrias
   if (pr.length) {
     html += `<div style="margin-top:12px">`;
     html += tablaSimpleResultado(pr, '🔵 PRECRIAS', '#6366f1');
     html += `</div>`;
   }
 
-  // Tabla reservorio
   if (res.length) {
     html += `<div style="margin-top:12px">`;
     html += tablaSimpleResultado(res, '💧 RESERVORIO', '#0891b2');
