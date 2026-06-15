@@ -296,28 +296,34 @@ def procesar():
         return jsonify({"error": "No se recibio foto"}), 400
     archivo = request.files["foto"]
     campo   = request.form.get("campo", "")
-    # Comprimir imagen si es muy grande (max 1600px, calidad 85)
+    # Preprocesar imagen: mejorar contraste y nitidez para mejor lectura
     try:
-        from PIL import Image
+        from PIL import Image, ImageEnhance, ImageFilter
         import io
         img_bytes = archivo.read()
         img = Image.open(io.BytesIO(img_bytes))
-        # Convertir a RGB si es necesario
-        if img.mode in ('RGBA', 'P'):
+        # Convertir a RGB
+        if img.mode in ('RGBA', 'P', 'L'):
             img = img.convert('RGB')
-        # Redimensionar si es muy grande
-        max_size = 1600
+        # Redimensionar a max 2000px manteniendo proporcion
+        max_size = 2000
         if img.width > max_size or img.height > max_size:
             img.thumbnail((max_size, max_size), Image.LANCZOS)
-        # Guardar comprimida
+        # Mejorar contraste
+        img = ImageEnhance.Contrast(img).enhance(1.4)
+        # Mejorar nitidez
+        img = ImageEnhance.Sharpness(img).enhance(2.0)
+        # Mejorar brillo levemente
+        img = ImageEnhance.Brightness(img).enhance(1.1)
+        # Guardar con buena calidad
         output = io.BytesIO()
-        img.save(output, format='JPEG', quality=85, optimize=True)
+        img.save(output, format='JPEG', quality=92, optimize=True)
         img_bytes = output.getvalue()
         imagen_b64 = base64.b64encode(img_bytes).decode()
         mime = "image/jpeg"
-        print(f"Imagen comprimida: {len(img_bytes)//1024}KB")
+        print(f"Imagen procesada: {len(img_bytes)//1024}KB ({img.width}x{img.height}px)")
     except Exception as e:
-        print(f"No se pudo comprimir imagen: {e}, usando original")
+        print(f"No se pudo procesar imagen: {e}, usando original")
         archivo.seek(0)
         imagen_b64 = base64.b64encode(archivo.read()).decode()
         mime = archivo.content_type or "image/jpeg"
