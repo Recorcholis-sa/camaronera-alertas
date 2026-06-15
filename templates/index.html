@@ -346,10 +346,12 @@ function renderDashboard(resumen, fecha) {
         <span class="stat-pill rg">${c.total - c.alertas} normal</span>
       </div>`;
 
-      if (c.prom_o2_am != null || c.prom_o2_pm != null) {
+      if (c.prom_o2_am != null || c.prom_o2_pm != null || c.prom_temp_am != null) {
         html += `<div class="prom-box">
           <div class="prom-item"><div class="prom-val">${c.prom_o2_am ?? '—'}</div><div class="prom-lbl">O₂ AM mg/L</div></div>
           <div class="prom-item"><div class="prom-val">${c.prom_o2_pm ?? '—'}</div><div class="prom-lbl">O₂ PM mg/L</div></div>
+          <div class="prom-item"><div class="prom-val" style="color:#f59e0b">${c.prom_temp_am ?? '—'}</div><div class="prom-lbl">T° AM °C</div></div>
+          <div class="prom-item"><div class="prom-val" style="color:#ef4444">${c.prom_temp_pm ?? '—'}</div><div class="prom-lbl">T° PM °C</div></div>
         </div>`;
       }
 
@@ -536,6 +538,22 @@ const ultimaFecha = fechasOrdenadas.length ? fechasOrdenadas[0] : '';
     });
     html += `</tbody></table></div>`;
     html += `<div style="margin-top:8px;font-size:11px;color:#7c3aed">🟣 16:00 = solo dashboard, no genera alerta</div>`;
+    // Promedios Fimasa 3
+    const f3ps = resultados.filter(r => r.dato && (r.dato.tipo||'piscina') === 'piscina');
+    if (f3ps.length) {
+      const avg = (key) => { const v = f3ps.map(r=>r.dato[key]).filter(x=>x!=null); return v.length ? (v.reduce((a,b)=>a+b,0)/v.length).toFixed(2) : '—'; };
+      const avgt = (key) => { const v = f3ps.map(r=>r.dato[key]).filter(x=>x!=null); return v.length ? (v.reduce((a,b)=>a+b,0)/v.length).toFixed(1) : '—'; };
+      html += `<div class="prom-box" style="flex-wrap:wrap;gap:8px;margin-top:8px">
+        <div class="prom-item" style="min-width:70px"><div style="font-size:10px;font-weight:700;color:#0369a1;margin-bottom:4px">00:30</div><div class="prom-val">\${avg('oxigeno_00')}</div><div class="prom-lbl">O2 mg/L</div></div>
+        <div class="prom-item" style="min-width:70px"><div style="font-size:10px;color:#6b7280;margin-bottom:4px">&nbsp;</div><div class="prom-val" style="color:#f59e0b">\${avgt('temp_00')}</div><div class="prom-lbl">T C</div></div>
+        <div class="prom-item" style="min-width:70px"><div style="font-size:10px;font-weight:700;color:#0369a1;margin-bottom:4px">02:30</div><div class="prom-val">\${avg('oxigeno_02')}</div><div class="prom-lbl">O2 mg/L</div></div>
+        <div class="prom-item" style="min-width:70px"><div style="font-size:10px;color:#6b7280;margin-bottom:4px">&nbsp;</div><div class="prom-val" style="color:#f59e0b">\${avgt('temp_02')}</div><div class="prom-lbl">T C</div></div>
+        <div class="prom-item" style="min-width:70px"><div style="font-size:10px;font-weight:700;color:#0369a1;margin-bottom:4px">05:00</div><div class="prom-val">\${avg('oxigeno_am')}</div><div class="prom-lbl">O2 mg/L</div></div>
+        <div class="prom-item" style="min-width:70px"><div style="font-size:10px;color:#6b7280;margin-bottom:4px">&nbsp;</div><div class="prom-val" style="color:#f59e0b">\${avgt('temp_am')}</div><div class="prom-lbl">T C</div></div>
+        <div class="prom-item" style="min-width:70px"><div style="font-size:10px;font-weight:700;color:#7c3aed;margin-bottom:4px">16:00</div><div class="prom-val" style="color:#7c3aed">\${avg('oxigeno_pm')}</div><div class="prom-lbl">O2 mg/L</div></div>
+        <div class="prom-item" style="min-width:70px"><div style="font-size:10px;color:#6b7280;margin-bottom:4px">&nbsp;</div><div class="prom-val" style="color:#ef4444">\${avgt('temp_pm')}</div><div class="prom-lbl">T C</div></div>
+      </div>`;
+    }
   } else {
     if (rPs.length) {
       html += tablaResumen(rPs, '🐟 PISCINAS', '#0F6E56');
@@ -895,6 +913,21 @@ function mostrarResultado(d){
   if (ps.length) {
     if (esFimasa3) {
       html += tablaF3Resultado(ps, '🐟 PISCINAS');
+      // Promedios Fimasa 3
+      if (ps.length) {
+        const avg3 = (key) => { const v = ps.map(p=>p[key]).filter(x=>x!=null); return v.length ? (v.reduce((a,b)=>a+b,0)/v.length).toFixed(2) : '—'; };
+        const avgt3 = (key) => { const v = ps.map(p=>p[key]).filter(x=>x!=null); return v.length ? (v.reduce((a,b)=>a+b,0)/v.length).toFixed(1) : '—'; };
+        html += `<div class="prom-box" style="flex-wrap:wrap;gap:8px;margin-top:4px">
+          <div class="prom-item" style="min-width:70px"><div style="font-size:10px;font-weight:700;color:#0369a1;margin-bottom:4px">00:30</div><div class="prom-val">\${avg3('oxigeno_00')}</div><div class="prom-lbl">O2</div></div>
+          <div class="prom-item" style="min-width:70px"><div style="font-size:10px;color:#6b7280;margin-bottom:4px">&nbsp;</div><div class="prom-val" style="color:#f59e0b">\${avgt3('temp_00')}</div><div class="prom-lbl">T</div></div>
+          <div class="prom-item" style="min-width:70px"><div style="font-size:10px;font-weight:700;color:#0369a1;margin-bottom:4px">02:30</div><div class="prom-val">\${avg3('oxigeno_02')}</div><div class="prom-lbl">O2</div></div>
+          <div class="prom-item" style="min-width:70px"><div style="font-size:10px;color:#6b7280;margin-bottom:4px">&nbsp;</div><div class="prom-val" style="color:#f59e0b">\${avgt3('temp_02')}</div><div class="prom-lbl">T</div></div>
+          <div class="prom-item" style="min-width:70px"><div style="font-size:10px;font-weight:700;color:#0369a1;margin-bottom:4px">05:00</div><div class="prom-val">\${avg3('oxigeno_am')}</div><div class="prom-lbl">O2</div></div>
+          <div class="prom-item" style="min-width:70px"><div style="font-size:10px;color:#6b7280;margin-bottom:4px">&nbsp;</div><div class="prom-val" style="color:#f59e0b">\${avgt3('temp_am')}</div><div class="prom-lbl">T</div></div>
+          <div class="prom-item" style="min-width:70px"><div style="font-size:10px;font-weight:700;color:#7c3aed;margin-bottom:4px">16:00</div><div class="prom-val" style="color:#7c3aed">\${avg3('oxigeno_pm')}</div><div class="prom-lbl">O2</div></div>
+          <div class="prom-item" style="min-width:70px"><div style="font-size:10px;color:#6b7280;margin-bottom:4px">&nbsp;</div><div class="prom-val" style="color:#ef4444">\${avgt3('temp_pm')}</div><div class="prom-lbl">T</div></div>
+        </div>`;
+      }
     } else {
       html += tablaSimpleResultado(ps, '🐟 PISCINAS', '#0F6E56');
       const o2amV = ps.filter(p=>p.oxigeno_am!=null).map(p=>p.oxigeno_am);
