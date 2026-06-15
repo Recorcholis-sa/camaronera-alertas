@@ -614,19 +614,27 @@ def extraer_con_ia(imagen_b64, mime, campo=""):
             "maxOutputTokens": 8192
         }
     }
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key={GEMINI_API_KEY}"
     req = urllib.request.Request(
         url,
         data=json.dumps(payload).encode(),
         headers={"Content-Type": "application/json"}
     )
-    try:
-        with urllib.request.urlopen(req, timeout=60) as r:
-            resp = json.loads(r.read())
-    except urllib.error.HTTPError as e:
-        err_body = e.read().decode()
-        print(f"Gemini API error {e.code}: {err_body}")
-        raise Exception(f"HTTP Error {e.code}: {err_body}")
+    import time as _time
+    for intento in range(3):
+        try:
+            with urllib.request.urlopen(req, timeout=90) as r:
+                raw_resp = r.read()
+                resp = json.loads(raw_resp)
+            break
+        except urllib.error.HTTPError as e:
+            err_body = e.read().decode()
+            print(f"Gemini API error {e.code}: {err_body[:200]}")
+            if e.code == 503 and intento < 2:
+                print(f"Reintentando en 10 segundos... (intento {intento+1}/3)")
+                _time.sleep(10)
+                continue
+            raise Exception(f"HTTP Error {e.code}: {err_body[:200]}")
 
     raw = resp["candidates"][0]["content"]["parts"][0]["text"].strip()
     import re as _re
