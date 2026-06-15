@@ -5,6 +5,7 @@ from flask import Flask, request, jsonify, render_template
 app = Flask(__name__)
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+GEMINI_API_KEY     = os.environ.get("GEMINI_API_KEY", "")
 USUARIOS_JSON     = os.environ.get("USUARIOS_JSON", "[]")
 POSTMARK_TOKEN    = os.environ.get("POSTMARK_TOKEN", "")
 EMAIL_REMITENTE   = os.environ.get("EMAIL_REMITENTE", "biologo4@docapes.com")
@@ -569,13 +570,8 @@ def extraer_con_ia(imagen_b64, mime, campo=""):
             "Asigna tipo segun la seccion: antes de PRECRIAS = tipo piscina, bajo PRECRIAS = tipo precria, bajo RESERVORIO = tipo reservorio. "
             "En la seccion PRECRIAS puede aparecer Pre, pre, Pc, pc u otras siglas antes del numero en columna PS. Ignoralas y usa solo el numero. "
             "Lee cada valor DOS VECES verificando digito por digito. "
-            "Rangos tipicos: oxigeno 1.0-15.0 mg/L, temperatura 20.0-35.0 grados C. "
-            "Si un valor es ilegible usa null. "
-            "Devuelve SOLO JSON valido sin texto extra ni markdown. "
-            "Estructura exacta: "
-            '{"sector":"Fimasa 3","piscinas":[{"ps":"1","tipo":"piscina","oxigeno_00":3.3,"temp_00":28.0,"oxigeno_02":2.8,"temp_02":28.1,"oxigeno_am":2.4,"temp_am":27.8,"oxigeno_pm":12.5,"temp_pm":32.0}]}'
+            'Devuelve SOLO JSON valido sin texto extra ni markdown: {"sector":"Fimasa 3","piscinas":[{"ps":"1","tipo":"piscina","oxigeno_00":3.3,"temp_00":28.0,"oxigeno_02":2.8,"temp_02":28.1,"oxigeno_am":2.4,"temp_am":27.8,"oxigeno_pm":12.5,"temp_pm":32.0}]}'
         )
-        max_tokens = 4000
     else:
         prompt = (
             "Eres un experto en acuicultura leyendo hojas de parametros de piscinas camaroneras. "
@@ -588,44 +584,49 @@ def extraer_con_ia(imagen_b64, mime, campo=""):
             "filas antes de PRECRIAS = tipo piscina, "
             "filas despues de PRECRIAS y antes de RESERVORIO = tipo precria, "
             "filas despues de RESERVORIO = tipo reservorio. "
-            "Si no hay secciones PRECRIAS ni RESERVORIO, todas son tipo piscina. " "En la columna PS de las precrias puede aparecer Pre, pre, Pc, pc u otras siglas antes del numero (ej: Pre 1, Pc 2). Ignoralas y usa solo el numero (ej: Pre 1 = ps 1, Pc 2 = ps 2). "
-            "Devuelve SOLO JSON valido sin texto extra ni explicaciones: "
-            '{"sector":"nombre","piscinas":[{"ps":"codigo","tipo":"piscina","oxigeno_am":3.5,"oxigeno_pm":3.2,"temp_am":28.1,"temp_pm":27.8}]}'
+            "Si no hay secciones PRECRIAS ni RESERVORIO, todas son tipo piscina. "
+            "En la columna PS de las precrias puede aparecer Pre, pre, Pc, pc u otras siglas antes del numero (ej: Pre 1, Pc 2). Ignoralas y usa solo el numero (ej: Pre 1 = ps 1, Pc 2 = ps 2). "
+            'Devuelve SOLO JSON valido sin texto extra ni explicaciones: {"sector":"nombre","piscinas":[{"ps":"codigo","tipo":"piscina","oxigeno_am":3.5,"oxigeno_pm":3.2,"temp_am":28.1,"temp_pm":27.8}]}'
         )
-        max_tokens = 3000
 
+    # Usar Gemini 1.5 Flash (gratuito)
     payload = {
-        "model": "claude-opus-4-6",
-        "max_tokens": max_tokens,
-        "messages": [{"role": "user", "content": [
-            {"type": "image", "source": {"type": "base64", "media_type": mime, "data": imagen_b64}},
-            {"type": "text", "text": prompt}
-        ]}]
+        "contents": [{
+            "parts": [
+                {"inline_data": {"mime_type": mime, "data": imagen_b64}},
+                {"text": prompt}
+            ]
+        }],
+        "generationConfig": {
+            "temperature": 0.1,
+            "maxOutputTokens": 4000
+        }
     }
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
     req = urllib.request.Request(
-        "https://api.anthropic.com/v1/messages",
+        url,
         data=json.dumps(payload).encode(),
-        headers={"Content-Type":"application/json","x-api-key":ANTHROPIC_API_KEY,"anthropic-version":"2023-06-01"}
+        headers={"Content-Type": "application/json"}
     )
     try:
         with urllib.request.urlopen(req, timeout=60) as r:
             resp = json.loads(r.read())
     except urllib.error.HTTPError as e:
         err_body = e.read().decode()
-        print(f"Anthropic API error {e.code}: {err_body}")
+        print(f"Gemini API error {e.code}: {err_body}")
         raise Exception(f"HTTP Error {e.code}: {err_body}")
-    text = "".join(b.get("text","") for b in resp["content"]).strip()
+
+    text = resp["candidates"][0]["content"]["parts"][0]["text"].strip()
     if "```" in text:
         text = text.split("```")[1].replace("json","").strip()
         if "```" in text:
             text = text.split("```")[0].strip()
-    start = text.find("{")
-    end   = text.rfind("}") + 1
-    if start >= 0 and end > start:
-        text = text[start:end]
+    start_idx = text.find("{")
+    end_idx   = text.rfind("}") + 1
+    if start_idx >= 0 and end_idx > start_idx:
+        text = text[start_idx:end_idx]
     return json.loads(text)
 
-# ── Alertas ────────────────────────────────────────────────
 def estado_o2(v):
     if v is None: return "normal"
     return "critico" if v < O2_CRITICO else "vigilancia" if v < O2_VIGILANCIA else "normal"
