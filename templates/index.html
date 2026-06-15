@@ -339,14 +339,30 @@ function renderDashboard(resumen, fecha) {
     <p style="font-size:12px;color:#6b7280;margin-bottom:10px">Toca un campo para ver el detalle →</p>
   `;
 
+  // Colores de fondo por campo
+  const campoBg = {
+    'Rolesa 1':    {bg:'#fff0f0', border:'#e57373', titulo:'#c62828'},
+    'Rolesa 2':    {bg:'#fff0f0', border:'#e57373', titulo:'#c62828'},
+    'Caesa 1':     {bg:'#fffde7', border:'#ffd54f', titulo:'#f57f17'},
+    'Caesa 2':     {bg:'#fffde7', border:'#ffd54f', titulo:'#f57f17'},
+    'Pantrusko 1': {bg:'#e0f7fa', border:'#4dd0e1', titulo:'#00838f'},
+    'Pantrusko 2': {bg:'#e0f7fa', border:'#4dd0e1', titulo:'#00838f'},
+    'Fimasa 1':    {bg:'#e8eaf6', border:'#5c6bc0', titulo:'#283593'},
+    'Fimasa 2':    {bg:'#e8eaf6', border:'#5c6bc0', titulo:'#283593'},
+    'Fimasa 3':    {bg:'#e8eaf6', border:'#5c6bc0', titulo:'#283593'},
+    'Recorcholis 1':{bg:'#e8f5e9', border:'#66bb6a', titulo:'#1b5e20'},
+    'Recorcholis 2':{bg:'#e8f5e9', border:'#66bb6a', titulo:'#1b5e20'},
+  };
+
   resumen.forEach(c => {
     const cls = c.criticos > 0 ? 'critico' : c.alertas > 0 ? 'vigilancia' : 'normal';
     const icon = c.criticos > 0 ? '🔴' : c.alertas > 0 ? '🟡' : '🟢';
     const sinDatos = !c.ultima_fecha;
+    const cbg = campoBg[c.campo] || {bg:'#f9fafb', border:'#e5e7eb', titulo:'#111'};
 
-    html += `<div class="campo-card ${sinDatos?'':''+cls}" onclick="verResumenCampoDesdeGerencia('${c.campo}')">
+    html += `<div class="campo-card ${sinDatos?'':''+cls}" style="background:${cbg.bg};border-color:${cbg.border}" onclick="verResumenCampoDesdeGerencia('${c.campo}')">
       <div class="campo-card-header">
-        <span class="campo-card-nombre">${icon} ${c.campo}</span>
+        <span class="campo-card-nombre" style="color:${cbg.titulo}">${icon} ${c.campo}</span>
         <span class="campo-card-fecha">${c.ultima_fecha || 'Sin datos'}</span>
       </div>`;
 
