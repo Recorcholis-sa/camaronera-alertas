@@ -645,14 +645,10 @@ def extraer_con_ia(imagen_b64, mime, campo=""):
     end_idx   = text.rfind("}") + 1
     if start_idx >= 0 and end_idx > start_idx:
         text = text[start_idx:end_idx]
-    # Remover comentarios // y /* */
-    import re
-    text = re.sub(r"//.*?
-", "
-", text)
-    text = re.sub(r"/\*.*?\*/", "", text, flags=re.DOTALL)
-    # Remover comas finales antes de } o ]
-    text = re.sub(r",\s*([}\]])", r"", text)
+    # Remover comentarios y comas finales
+    import re as _re
+    text = _re.sub(r'//[^\n]*', '', text)
+    text = _re.sub(r',\s*([}\]])', r'\1', text)
     print(f"JSON limpio (primeros 200 chars): {text[:200]}")
     return json.loads(text)
 
