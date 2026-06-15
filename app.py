@@ -588,7 +588,7 @@ def extraer_con_ia(imagen_b64, mime, campo=""):
             "En la columna PS de las precrias puede aparecer Pre, pre, Pc, pc u otras siglas antes del numero (ej: Pre 1, Pc 2). Ignoralas y usa solo el numero (ej: Pre 1 = ps 1, Pc 2 = ps 2). "
             'Devuelve SOLO JSON valido sin texto extra ni explicaciones: {"sector":"nombre","piscinas":[{"ps":"codigo","tipo":"piscina","oxigeno_am":3.5,"oxigeno_pm":3.2,"temp_am":28.1,"temp_pm":27.8}]}'
         )
-        max_tokens = 3000
+        max_tokens = 4096
 
     payload = {
         "model": "claude-haiku-4-5-20251001",
@@ -620,7 +620,17 @@ def extraer_con_ia(imagen_b64, mime, campo=""):
     end_idx   = text.rfind("}") + 1
     if start_idx >= 0 and end_idx > start_idx:
         text = text[start_idx:end_idx]
-    return json.loads(text)
+    try:
+        return json.loads(text)
+    except Exception as e:
+        print(f"JSON parse error: {e}, intentando reparar...")
+        fixed = text.rstrip()
+        if fixed.endswith(','):
+            fixed = fixed[:-1]
+        opens_brace   = fixed.count('{') - fixed.count('}')
+        opens_bracket = fixed.count('[') - fixed.count(']')
+        fixed += ']' * opens_bracket + '}' * opens_brace
+        return json.loads(fixed)
 
 
 def estado_o2(v):
