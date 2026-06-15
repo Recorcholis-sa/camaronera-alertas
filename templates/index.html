@@ -538,12 +538,18 @@ const ultimaFecha = fechasOrdenadas.length ? fechasOrdenadas[0] : '';
       html += tablaResumen(rPs, '🐟 PISCINAS', '#0F6E56');
       const o2amVals = rPs.filter(r=>r.dato?.oxigeno_am!=null).map(r=>r.dato.oxigeno_am);
       const o2pmVals = rPs.filter(r=>r.dato?.oxigeno_pm!=null).map(r=>r.dato.oxigeno_pm);
-      if (o2amVals.length || o2pmVals.length) {
-        const pAM = o2amVals.length ? (o2amVals.reduce((a,b)=>a+b,0)/o2amVals.length).toFixed(2) : '—';
-        const pPM = o2pmVals.length ? (o2pmVals.reduce((a,b)=>a+b,0)/o2pmVals.length).toFixed(2) : '—';
+      const tamVals = rPs.filter(r=>r.dato?.temp_am!=null).map(r=>r.dato.temp_am);
+      const tpmVals = rPs.filter(r=>r.dato?.temp_pm!=null).map(r=>r.dato.temp_pm);
+      if (o2amVals.length || o2pmVals.length || tamVals.length || tpmVals.length) {
+        const pAM  = o2amVals.length ? (o2amVals.reduce((a,b)=>a+b,0)/o2amVals.length).toFixed(2) : '—';
+        const pPM  = o2pmVals.length ? (o2pmVals.reduce((a,b)=>a+b,0)/o2pmVals.length).toFixed(2) : '—';
+        const pTAM = tamVals.length  ? (tamVals.reduce((a,b)=>a+b,0)/tamVals.length).toFixed(1)   : '—';
+        const pTPM = tpmVals.length  ? (tpmVals.reduce((a,b)=>a+b,0)/tpmVals.length).toFixed(1)   : '—';
         html += `<div class="prom-box">
-          <div class="prom-item"><div class="prom-val">${pAM}</div><div class="prom-lbl">O₂ AM prom mg/L</div></div>
-          <div class="prom-item"><div class="prom-val">${pPM}</div><div class="prom-lbl">O₂ PM prom mg/L</div></div>
+          <div class="prom-item"><div class="prom-val">${pAM}</div><div class="prom-lbl">O₂ AM mg/L</div></div>
+          <div class="prom-item"><div class="prom-val">${pPM}</div><div class="prom-lbl">O₂ PM mg/L</div></div>
+          <div class="prom-item"><div class="prom-val">${pTAM}</div><div class="prom-lbl">T° AM °C</div></div>
+          <div class="prom-item"><div class="prom-val">${pTPM}</div><div class="prom-lbl">T° PM °C</div></div>
         </div>`;
       }
     }
@@ -878,10 +884,14 @@ function mostrarResultado(d){
       html += tablaSimpleResultado(ps, '🐟 PISCINAS', '#0F6E56');
       const o2amV = ps.filter(p=>p.oxigeno_am!=null).map(p=>p.oxigeno_am);
       const o2pmV = ps.filter(p=>p.oxigeno_pm!=null).map(p=>p.oxigeno_pm);
-      if (o2amV.length || o2pmV.length) {
-        const pAM = o2amV.length ? (o2amV.reduce((a,b)=>a+b,0)/o2amV.length).toFixed(2) : '—';
-        const pPM = o2pmV.length ? (o2pmV.reduce((a,b)=>a+b,0)/o2pmV.length).toFixed(2) : '—';
-        html += `<div class="prom-box"><div class="prom-item"><div class="prom-val">${pAM}</div><div class="prom-lbl">O₂ AM prom</div></div><div class="prom-item"><div class="prom-val">${pPM}</div><div class="prom-lbl">O₂ PM prom</div></div></div>`;
+      const tAmV = ps.filter(p=>p.temp_am!=null).map(p=>p.temp_am);
+      const tPmV = ps.filter(p=>p.temp_pm!=null).map(p=>p.temp_pm);
+      if (o2amV.length || o2pmV.length || tAmV.length || tPmV.length) {
+        const pAM  = o2amV.length ? (o2amV.reduce((a,b)=>a+b,0)/o2amV.length).toFixed(2) : '—';
+        const pPM  = o2pmV.length ? (o2pmV.reduce((a,b)=>a+b,0)/o2pmV.length).toFixed(2) : '—';
+        const pTAM = tAmV.length  ? (tAmV.reduce((a,b)=>a+b,0)/tAmV.length).toFixed(1)   : '—';
+        const pTPM = tPmV.length  ? (tPmV.reduce((a,b)=>a+b,0)/tPmV.length).toFixed(1)   : '—';
+        html += `<div class="prom-box"><div class="prom-item"><div class="prom-val">${pAM}</div><div class="prom-lbl">O₂ AM mg/L</div></div><div class="prom-item"><div class="prom-val">${pPM}</div><div class="prom-lbl">O₂ PM mg/L</div></div><div class="prom-item"><div class="prom-val">${pTAM}</div><div class="prom-lbl">T° AM °C</div></div><div class="prom-item"><div class="prom-val">${pTPM}</div><div class="prom-lbl">T° PM °C</div></div></div>`;
       }
     }
   }
