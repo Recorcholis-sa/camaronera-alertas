@@ -590,7 +590,7 @@ def extraer_con_ia(imagen_b64, mime, campo=""):
             "filas antes de PRECRIAS = tipo piscina, "
             "filas despues de PRECRIAS y antes de RESERVORIO = tipo precria, "
             "filas despues de RESERVORIO = tipo reservorio. "
-            "Si no hay secciones PRECRIAS ni RESERVORIO, todas son tipo piscina. "
+            "Si no hay secciones PRECRIAS ni RESERVORIO, todas son tipo piscina. " "IMPORTANTE: Busca activamente las palabras PRECRIAS y RESERVORIO escritas en la columna PS o en cualquier parte del block. Cuando encuentres PRECRIAS, todas las filas siguientes son precrias hasta encontrar RESERVORIO. Cuando encuentres RESERVORIO, todas las filas siguientes son reservorio. "
             "En la columna PS de las precrias puede aparecer Pre, pre, Pc, pc u otras siglas antes del numero (ej: Pre 1, Pc 2). Ignoralas y usa solo el numero (ej: Pre 1 = ps 1, Pc 2 = ps 2). "
             'Devuelve SOLO JSON valido sin texto extra ni explicaciones: {"sector":"nombre","piscinas":[{"ps":"codigo","tipo":"piscina","oxigeno_am":3.5,"oxigeno_pm":3.2,"temp_am":28.1,"temp_pm":27.8}]}'
         )
