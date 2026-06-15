@@ -399,48 +399,6 @@ function renderDashboard(resumen, fecha) {
         html += tablaPs;
       }
 
-      const prAlertas = prPs.filter(p =>
-        (p.ultimo?.oxigeno_am != null && p.ultimo.oxigeno_am < 3.5) ||
-        (p.ultimo?.oxigeno_pm != null && p.ultimo.oxigeno_pm < 3.5)
-      );
-      if (prAlertas.length) {
-        html += `<div style="margin-top:6px;font-size:12px;border-top:1px dashed #e5e7eb;padding-top:4px">
-          <span style="font-size:10px;font-weight:700;color:#6366f1">🔵 PRECRIAS</span>`;
-        let tablaPr = `<div style="margin-top:6px;overflow-x:auto">
-          <table style="width:100%;border-collapse:collapse;font-size:12px;border:1px solid #e5e7eb">
-            <thead><tr style="background:#f9fafb">
-              <th style="padding:5px 7px;text-align:center;color:#6b7280;border-bottom:1px solid #e5e7eb">PR</th>
-              <th style="padding:5px 7px;text-align:center;color:#6b7280;border-bottom:1px solid #e5e7eb">O₂ AM</th>
-              <th style="padding:5px 7px;text-align:center;color:#6b7280;border-bottom:1px solid #e5e7eb">O₂ PM</th>
-              <th style="padding:5px 7px;text-align:center;color:#6b7280;border-bottom:1px solid #e5e7eb">T AM</th>
-              <th style="padding:5px 7px;text-align:center;color:#6b7280;border-bottom:1px solid #e5e7eb">T PM</th>
-              <th style="padding:5px 7px;text-align:center;color:#6b7280;border-bottom:1px solid #e5e7eb">Estado</th>
-            </tr></thead><tbody>`;
-        prAlertas.forEach(p => {
-          const o2am = p.ultimo?.oxigeno_am;
-          const o2pm = p.ultimo?.oxigeno_pm;
-          const tam  = p.ultimo?.temp_am;
-          const tpm  = p.ultimo?.temp_pm;
-          const eAM = estO2(o2am), ePM = estO2(o2pm);
-          const worst = eAM==='c'||ePM==='c'?'c':eAM==='v'||ePM==='v'?'v':'n';
-          const dotCls = {c:'dot-c',v:'dot-v',n:'dot-n'}[worst];
-          const lbl = {c:'🔴 Critico',v:'🟡 Vigilancia',n:'🟢 Normal'}[worst];
-          const bcCls = {c:'bc rc',v:'bc ry',n:'bc rg'}[worst];
-          const fmtO2d = v => v==null?'<span style="color:#9ca3af">—</span>':(v<2.9?`<span style="color:#991b1b;font-weight:700">${v}</span>`:(v<3.5?`<span style="color:#92400e;font-weight:700">${v}</span>`:`<span style="color:#065f46">${v}</span>`));
-          tablaPr += `<tr style="border-bottom:1px solid #f3f4f6">
-            <td style="padding:5px 7px;text-align:center;font-weight:700"><span class="alerta-dot ${dotCls}"></span>${p.piscina}</td>
-            <td style="padding:5px 7px;text-align:center">${fmtO2d(o2am)}</td>
-            <td style="padding:5px 7px;text-align:center">${fmtO2d(o2pm)}</td>
-            <td style="padding:5px 7px;text-align:center;color:#374151">${tam??'—'}</td>
-            <td style="padding:5px 7px;text-align:center;color:#374151">${tpm??'—'}</td>
-            <td style="padding:5px 7px;text-align:center"><span class="${bcCls}">${lbl}</span></td>
-          </tr>`;
-        });
-        tablaPr += `</tbody></table></div>`;
-        html += tablaPr;
-        html += `</div>`;
-      }
-
       // Fimasa 3: tabla con 3 mediciones de madrugada
       if (c.campo === FIMASA3) {
         const f3Alertas = soloPs.filter(p =>
@@ -489,7 +447,49 @@ function renderDashboard(resumen, fecha) {
         }
       }
 
-      if (resPs.length) {
+
+
+            const prAlertas = prPs.filter(p =>
+        (p.ultimo?.oxigeno_am != null && p.ultimo.oxigeno_am < 3.5) ||
+        (p.ultimo?.oxigeno_pm != null && p.ultimo.oxigeno_pm < 3.5)
+      );
+      if (prAlertas.length) {
+        html += `<div style="margin-top:6px;font-size:12px;border-top:1px dashed #e5e7eb;padding-top:4px">
+          <span style="font-size:10px;font-weight:700;color:#6366f1">🔵 PRECRIAS</span>`;
+        let tablaPr = `<div style="margin-top:6px;overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:12px;border:1px solid #e5e7eb">
+            <thead><tr style="background:#f9fafb">
+              <th style="padding:5px 7px;text-align:center;color:#6b7280;border-bottom:1px solid #e5e7eb">PR</th>
+              <th style="padding:5px 7px;text-align:center;color:#6b7280;border-bottom:1px solid #e5e7eb">O₂ AM</th>
+              <th style="padding:5px 7px;text-align:center;color:#6b7280;border-bottom:1px solid #e5e7eb">O₂ PM</th>
+              <th style="padding:5px 7px;text-align:center;color:#6b7280;border-bottom:1px solid #e5e7eb">T AM</th>
+              <th style="padding:5px 7px;text-align:center;color:#6b7280;border-bottom:1px solid #e5e7eb">T PM</th>
+              <th style="padding:5px 7px;text-align:center;color:#6b7280;border-bottom:1px solid #e5e7eb">Estado</th>
+            </tr></thead><tbody>`;
+        prAlertas.forEach(p => {
+          const o2am = p.ultimo?.oxigeno_am;
+          const o2pm = p.ultimo?.oxigeno_pm;
+          const tam  = p.ultimo?.temp_am;
+          const tpm  = p.ultimo?.temp_pm;
+          const eAM = estO2(o2am), ePM = estO2(o2pm);
+          const worst = eAM==='c'||ePM==='c'?'c':eAM==='v'||ePM==='v'?'v':'n';
+          const dotCls = {c:'dot-c',v:'dot-v',n:'dot-n'}[worst];
+          const lbl = {c:'🔴 Critico',v:'🟡 Vigilancia',n:'🟢 Normal'}[worst];
+          const bcCls = {c:'bc rc',v:'bc ry',n:'bc rg'}[worst];
+          const fmtO2d = v => v==null?'<span style="color:#9ca3af">—</span>':(v<2.9?`<span style="color:#991b1b;font-weight:700">${v}</span>`:(v<3.5?`<span style="color:#92400e;font-weight:700">${v}</span>`:`<span style="color:#065f46">${v}</span>`));
+          tablaPr += `<tr style="border-bottom:1px solid #f3f4f6">
+            <td style="padding:5px 7px;text-align:center;font-weight:700"><span class="alerta-dot ${dotCls}"></span>${p.piscina}</td>
+            <td style="padding:5px 7px;text-align:center">${fmtO2d(o2am)}</td>
+            <td style="padding:5px 7px;text-align:center">${fmtO2d(o2pm)}</td>
+            <td style="padding:5px 7px;text-align:center;color:#374151">${tam??'—'}</td>
+            <td style="padding:5px 7px;text-align:center;color:#374151">${tpm??'—'}</td>
+            <td style="padding:5px 7px;text-align:center"><span class="${bcCls}">${lbl}</span></td>
+          </tr>`;
+        });
+        tablaPr += `</tbody></table></div>`;
+        html += tablaPr;
+        html += `</div>`;
+      }      if (resPs.length) {
         html += `<div style="margin-top:6px;font-size:11px;color:#0891b2;border-top:1px dashed #e5e7eb;padding-top:4px">
           💧 ${resPs.length} punto(s) de reservorio registrado(s)
         </div>`;
