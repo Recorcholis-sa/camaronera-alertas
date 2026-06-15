@@ -5,7 +5,6 @@ from flask import Flask, request, jsonify, render_template
 app = Flask(__name__)
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
-GEMINI_API_KEY     = os.environ.get("GEMINI_API_KEY", "")
 USUARIOS_JSON     = os.environ.get("USUARIOS_JSON", "[]")
 POSTMARK_TOKEN    = os.environ.get("POSTMARK_TOKEN", "")
 EMAIL_REMITENTE   = os.environ.get("EMAIL_REMITENTE", "biologo4@docapes.com")
@@ -265,18 +264,6 @@ def tiene_critico_fimasa3(u):
 @app.route("/")
 def index():
     return render_template("index.html")
-
-@app.route("/api/gemini-models", methods=["GET"])
-def gemini_models():
-    try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models?key={GEMINI_API_KEY}"
-        req = urllib.request.Request(url)
-        with urllib.request.urlopen(req, timeout=10) as r:
-            resp = json.loads(r.read())
-        modelos = [m["name"] for m in resp.get("models", []) if "generateContent" in m.get("supportedGenerationMethods", [])]
-        return jsonify({"modelos": modelos})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
 
 @app.route("/api/campos", methods=["GET"])
 def get_campos():
@@ -584,6 +571,7 @@ def extraer_con_ia(imagen_b64, mime, campo=""):
             "Lee cada valor DOS VECES verificando digito por digito. "
             'Devuelve SOLO JSON valido sin texto extra ni markdown: {"sector":"Fimasa 3","piscinas":[{"ps":"1","tipo":"piscina","oxigeno_00":3.3,"temp_00":28.0,"oxigeno_02":2.8,"temp_02":28.1,"oxigeno_am":2.4,"temp_am":27.8,"oxigeno_pm":12.5,"temp_pm":32.0}]}'
         )
+        max_tokens = 4000
     else:
         prompt = (
             "Eres un experto en acuicultura leyendo hojas de parametros de piscinas camaroneras. "
@@ -600,76 +588,40 @@ def extraer_con_ia(imagen_b64, mime, campo=""):
             "En la columna PS de las precrias puede aparecer Pre, pre, Pc, pc u otras siglas antes del numero (ej: Pre 1, Pc 2). Ignoralas y usa solo el numero (ej: Pre 1 = ps 1, Pc 2 = ps 2). "
             'Devuelve SOLO JSON valido sin texto extra ni explicaciones: {"sector":"nombre","piscinas":[{"ps":"codigo","tipo":"piscina","oxigeno_am":3.5,"oxigeno_pm":3.2,"temp_am":28.1,"temp_pm":27.8}]}'
         )
+        max_tokens = 3000
 
-    # Usar Gemini 1.5 Flash (gratuito)
     payload = {
-        "contents": [{
-            "parts": [
-                {"inline_data": {"mime_type": mime, "data": imagen_b64}},
-                {"text": prompt}
-            ]
-        }],
-        "generationConfig": {
-            "temperature": 0.1,
-            "maxOutputTokens": 8192
-        }
+        "model": "claude-haiku-4-5-20251001",
+        "max_tokens": max_tokens,
+        "messages": [{"role": "user", "content": [
+            {"type": "image", "source": {"type": "base64", "media_type": mime, "data": imagen_b64}},
+            {"type": "text", "text": prompt}
+        ]}]
     }
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key={GEMINI_API_KEY}"
     req = urllib.request.Request(
-        url,
+        "https://api.anthropic.com/v1/messages",
         data=json.dumps(payload).encode(),
-        headers={"Content-Type": "application/json"}
+        headers={"Content-Type":"application/json","x-api-key":ANTHROPIC_API_KEY,"anthropic-version":"2023-06-01"}
     )
-    import time as _time
-    for intento in range(3):
-        try:
-            with urllib.request.urlopen(req, timeout=90) as r:
-                raw_resp = r.read()
-                resp = json.loads(raw_resp)
-            break
-        except urllib.error.HTTPError as e:
-            err_body = e.read().decode()
-            print(f"Gemini API error {e.code}: {err_body[:200]}")
-            if e.code == 503 and intento < 2:
-                print(f"Reintentando en 10 segundos... (intento {intento+1}/3)")
-                _time.sleep(10)
-                continue
-            raise Exception(f"HTTP Error {e.code}: {err_body[:200]}")
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            resp = json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        err_body = e.read().decode()
+        print(f"Claude API error {e.code}: {err_body[:300]}")
+        raise Exception(f"HTTP Error {e.code}: {err_body[:200]}")
 
-    raw = resp["candidates"][0]["content"]["parts"][0]["text"].strip()
-    import re as _re
-    # Quitar bloques markdown
-    text = _re.sub(r"```json", "", raw)
-    text = _re.sub(r"```", "", text)
-    # Extraer desde primer { hasta ultimo }
+    text = "".join(b.get("text","") for b in resp["content"]).strip()
+    if "```" in text:
+        text = text.split("```")[1].replace("json","").strip()
+        if "```" in text:
+            text = text.split("```")[0].strip()
     start_idx = text.find("{")
     end_idx   = text.rfind("}") + 1
     if start_idx >= 0 and end_idx > start_idx:
         text = text[start_idx:end_idx]
-    # Remover comentarios //
-    text = _re.sub("//[^\n]*", "", text)
-    # Remover comas finales
-    try:
-        return json.loads(text)
-    except Exception as e:
-        print(f"JSON parse error: {e}")
-        print("JSON que fallo: " + text[:500])
-        # Intentar reparar JSON incompleto agregando cierres faltantes
-        fixed = text.rstrip()
-        # Contar llaves y corchetes abiertos
-        opens_brace  = fixed.count('{') - fixed.count('}')
-        opens_bracket = fixed.count('[') - fixed.count(']')
-        # Remover coma final si existe
-        if fixed.endswith(','):
-            fixed = fixed[:-1]
-        # Cerrar estructuras abiertas
-        fixed += ']' * opens_bracket + '}' * opens_brace
-        try:
-            print("Intentando con JSON reparado...")
-            return json.loads(fixed)
-        except Exception as e2:
-            print(f"JSON reparado error: {e2}")
-            raise e
+    return json.loads(text)
+
 
 def estado_o2(v):
     if v is None: return "normal"
