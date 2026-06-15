@@ -266,6 +266,18 @@ def tiene_critico_fimasa3(u):
 def index():
     return render_template("index.html")
 
+@app.route("/api/gemini-models", methods=["GET"])
+def gemini_models():
+    try:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models?key={GEMINI_API_KEY}"
+        req = urllib.request.Request(url)
+        with urllib.request.urlopen(req, timeout=10) as r:
+            resp = json.loads(r.read())
+        modelos = [m["name"] for m in resp.get("models", []) if "generateContent" in m.get("supportedGenerationMethods", [])]
+        return jsonify({"modelos": modelos})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route("/api/campos", methods=["GET"])
 def get_campos():
     return jsonify({"campos": CAMPOS})
