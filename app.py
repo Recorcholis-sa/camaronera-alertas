@@ -17,7 +17,7 @@ CAMPOS = ["Rolesa 1","Rolesa 2","Pantrusko 1","Pantrusko 2",
           "Recorcholis 1","Recorcholis 2"]
 
 FIMASA3 = "Fimasa 3"
-CAMPOS_GRANDES = {"Caesa 2", "Rolesa 2", "Fimasa 3", "Pantrusko 2", "Recorcholis 1", "Recorcholis 2"}
+CAMPOS_GRANDES = set(CAMPOS)  # Todos los campos usan Sonnet para mayor precision
 
 import psycopg2
 from psycopg2.extras import RealDictCursor
