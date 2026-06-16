@@ -17,6 +17,7 @@ CAMPOS = ["Rolesa 1","Rolesa 2","Pantrusko 1","Pantrusko 2",
           "Recorcholis 1","Recorcholis 2"]
 
 FIMASA3 = "Fimasa 3"
+CAMPOS_GRANDES = {"Caesa 2", "Rolesa 2", "Fimasa 3", "Pantrusko 2"}
 
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -596,8 +597,11 @@ def extraer_con_ia(imagen_b64, mime, campo=""):
         )
         max_tokens = 4096
 
+    # Usar Sonnet para campos grandes, Haiku para los demas
+    modelo = "claude-sonnet-4-6" if campo in CAMPOS_GRANDES else "claude-haiku-4-5-20251001"
+    print(f"Usando modelo: {modelo} para campo: {campo}")
     payload = {
-        "model": "claude-haiku-4-5-20251001",
+        "model": modelo,
         "max_tokens": max_tokens,
         "messages": [{"role": "user", "content": [
             {"type": "image", "source": {"type": "base64", "media_type": mime, "data": imagen_b64}},
