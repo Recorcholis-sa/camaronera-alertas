@@ -598,11 +598,11 @@ def extraer_con_ia(imagen_b64, mime, campo=""):
             "El block puede tener 3 secciones: piscinas normales, PRECRIAS y RESERVORIO. "
             "REGLA PRINCIPAL para asignar tipo — usa esta logica en orden de prioridad: "
             "1. Si la columna PS empieza con Pre, pre, PR, Pr (ej: Pre 1, Pre 2) = tipo precria SIEMPRE, sin importar donde este en el block. "
-            "2. Si la columna PS es Est, EST, Rc, RC o similar = tipo reservorio SIEMPRE. "
+            "2. Si la columna PS empieza con Est, EST, est, Rs, RS, rs, Rc, RC, rc (con o sin numero despues, ej: Est, Est1, Est 1, Est2, Rs1, Rs 2, Rc, Rc1) = tipo reservorio SIEMPRE. Normaliza a formato 'Est 1', 'Est 2', 'Rs 1', 'Rs 2', 'Rc 1', 'Rc 2' segun corresponda. Si no tiene numero usa solo 'Est' o 'Rs' o 'Rc'. "
             "3. Si encuentras la palabra PRECRIAS o PRECRIA como titulo de seccion = todas las filas siguientes son tipo precria hasta encontrar RESERVORIO. "
             "4. Si encuentras la palabra RESERVORIO (o variantes: RESERUORIO, RESERV) = todas las filas siguientes son tipo reservorio. "
             "5. Si el PS es un numero solo sin prefijo (ej: 1, 2, 15, 33) = tipo piscina SIEMPRE, aunque este despues de la palabra PRECRIAS en el block. "
-            "ESTANDAR DE PS: normaliza precrias como 'Pre 1', 'Pre 2', etc. Normaliza reservorio como 'Est' o 'Rc' (primera letra mayuscula). "
+            "ESTANDAR DE PS: normaliza precrias como 'Pre 1', 'Pre 2', etc. Normaliza reservorio como 'Est 1', 'Est 2', 'Rs 1', 'Rs 2', 'Rc 1', 'Rc 2' etc. Si solo hay uno sin numero usa 'Est', 'Rs' o 'Rc'. "
             'Devuelve SOLO JSON valido sin texto extra ni explicaciones: {"sector":"nombre","piscinas":[{"ps":"1","tipo":"piscina","oxigeno_am":3.5,"oxigeno_pm":null,"temp_am":28.1,"temp_pm":null}]}'
         )
         max_tokens = 4096
