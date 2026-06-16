@@ -524,25 +524,25 @@ def historico():
             cur.execute(f"SELECT MAX(corrida) as mc FROM lecturas WHERE sector=%s AND piscina=%s {tipo_where}", [sector, piscina] + tipo_params)
             row = cur.fetchone()
             max_corrida = row["mc"] if row and row["mc"] else 1
+            tipo_cond = "AND COALESCE(tipo,'piscina')=%s" if tipo_filtro else ""
+            tipo_val  = [tipo_filtro] if tipo_filtro else []
             if dias == 1:
-                # Hoy: tomar solo el ultimo registro
-                cur.execute("""
+                cur.execute(f"""
                     SELECT DISTINCT ON (fecha) fecha, oxigeno_am, oxigeno_pm, temp_am, temp_pm, corrida,
                            oxigeno_00, temp_00, oxigeno_02, temp_02, COALESCE(tipo,'piscina') as tipo
-                    FROM lecturas WHERE sector=%s AND piscina=%s AND corrida=%s
+                    FROM lecturas WHERE sector=%s AND piscina=%s AND corrida=%s {tipo_cond}
                     ORDER BY fecha DESC, created_at DESC LIMIT 1
-                """, (sector, piscina, max_corrida))
+                """, [sector, piscina, max_corrida] + tipo_val)
             else:
-                # Multiples dias: tomar los ultimos N ordenados cronologicamente
-                cur.execute("""
+                cur.execute(f"""
                     SELECT * FROM (
                         SELECT DISTINCT ON (fecha) fecha, oxigeno_am, oxigeno_pm, temp_am, temp_pm, corrida,
                                oxigeno_00, temp_00, oxigeno_02, temp_02, COALESCE(tipo,'piscina') as tipo,
                                created_at
-                        FROM lecturas WHERE sector=%s AND piscina=%s AND corrida=%s
+                        FROM lecturas WHERE sector=%s AND piscina=%s AND corrida=%s {tipo_cond}
                         ORDER BY fecha DESC, created_at DESC LIMIT %s
                     ) sub ORDER BY created_at ASC
-                """, (sector, piscina, max_corrida, dias))
+                """, [sector, piscina, max_corrida] + tipo_val + [dias])
         rows = cur.fetchall()
         cur.close(); con.close()
         datos = [dict(r) for r in rows]
