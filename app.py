@@ -101,8 +101,8 @@ def guardar_lecturas(sector, fecha, piscinas):
         p["ps"] = ps_limpio if ps_limpio else p["ps"]
         corrida = get_corrida_actual(cur, sector, p["ps"])
         cur.execute(
-            "SELECT id FROM lecturas WHERE sector=%s AND fecha=%s AND piscina=%s AND corrida=%s",
-            (sector, fecha, p["ps"], corrida)
+            "SELECT id FROM lecturas WHERE sector=%s AND fecha=%s AND piscina=%s AND corrida=%s AND COALESCE(tipo,'piscina')=%s",
+            (sector, fecha, p["ps"], corrida, tipo)
         )
         if cur.fetchone():
             if es_fimasa3:
@@ -337,6 +337,8 @@ def procesar():
         datos = extraer_con_ia(imagen_b64, mime, campo)
         total = len(datos.get("piscinas", []))
         print(f"IA respondio: {total} registros")
+        for p in datos.get("piscinas", [])[:5]:
+            print(f"  -> ps={p.get('ps')} tipo={p.get('tipo','piscina')} o2am={p.get('oxigeno_am')}")
         if campo:
             datos["sector"] = campo
         fecha_hoy = (datetime.utcnow() - timedelta(hours=5)).strftime("%d/%m/%Y")
@@ -595,7 +597,7 @@ def extraer_con_ia(imagen_b64, mime, campo=""):
             "filas antes de PRECRIAS = tipo piscina, "
             "filas despues de PRECRIAS y antes de RESERVORIO = tipo precria, "
             "filas despues de RESERVORIO = tipo reservorio. "
-            "Si no hay secciones PRECRIAS ni RESERVORIO, todas son tipo piscina. " "IMPORTANTE: Busca activamente las palabras PRECRIAS y RESERVORIO escritas en la columna PS o en cualquier parte del block. Cuando encuentres PRECRIAS, todas las filas siguientes son precrias hasta encontrar RESERVORIO. Cuando encuentres RESERVORIO, todas las filas siguientes son reservorio. "
+            "Si no hay secciones PRECRIAS ni RESERVORIO, todas son tipo piscina. " "IMPORTANTE: Busca activamente las palabras PRECRIAS y RESERVORIO escritas en cualquier parte del block. " "Cuando encuentres la palabra PRECRIAS (puede estar escrita en la columna PS o como titulo de seccion), TODAS las filas que vienen despues son tipo precria hasta que encuentres RESERVORIO. " "Cuando encuentres la palabra RESERVORIO, TODAS las filas siguientes son tipo reservorio. " "NO importa si los numeros de piscina en la seccion PRECRIAS coinciden con numeros de piscinas normales. Si la fila esta despues de la palabra PRECRIAS, es tipo precria obligatoriamente. "
             "En la columna PS de las precrias puede aparecer Pre, pre, Pc, pc u otras siglas antes del numero (ej: Pre 1, Pc 2). Ignoralas y usa solo el numero (ej: Pre 1 = ps 1, Pc 2 = ps 2). "
             'Devuelve SOLO JSON valido sin texto extra ni explicaciones: {"sector":"nombre","piscinas":[{"ps":"codigo","tipo":"piscina","oxigeno_am":3.5,"oxigeno_pm":3.2,"temp_am":28.1,"temp_pm":27.8}]}'
         )
