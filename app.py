@@ -95,6 +95,10 @@ def guardar_lecturas(sector, fecha, piscinas):
     es_fimasa3 = sector == FIMASA3
     for p in piscinas:
         tipo = p.get("tipo", "piscina")
+        # Limpiar prefijos Pre/pre/Pc/pc del codigo de piscina
+        import re as _re
+        ps_limpio = _re.sub(r"(?i)^(pre|pc)\s*", "", str(p["ps"])).strip()
+        p["ps"] = ps_limpio if ps_limpio else p["ps"]
         corrida = get_corrida_actual(cur, sector, p["ps"])
         cur.execute(
             "SELECT id FROM lecturas WHERE sector=%s AND fecha=%s AND piscina=%s AND corrida=%s",
