@@ -208,8 +208,9 @@ def get_resumen_campo(sector, dias=3):
             WHERE sector=%s AND corrida=(
                 SELECT MAX(corrida) FROM lecturas l2
                 WHERE l2.sector=lecturas.sector AND l2.piscina=lecturas.piscina
+                AND COALESCE(l2.tipo,'piscina')=COALESCE(lecturas.tipo,'piscina')
             )
-            ORDER BY piscina, created_at DESC
+            ORDER BY piscina, COALESCE(tipo,'piscina'), created_at DESC
         """, (sector,))
         rows = cur.fetchall()
         cur.close(); con.close()
@@ -217,25 +218,29 @@ def get_resumen_campo(sector, dias=3):
         piscinas_dict = {}
         for r in rows:
             ps = r["piscina"]
-            if ps not in piscinas_dict:
-                piscinas_dict[ps] = []
-            if len(piscinas_dict[ps]) < dias:
-                piscinas_dict[ps].append(dict(r))
+            tipo_r = r.get("tipo", "piscina") or "piscina"
+            key = (ps, tipo_r)
+            if key not in piscinas_dict:
+                piscinas_dict[key] = []
+            if len(piscinas_dict[key]) < dias:
+                piscinas_dict[key].append(dict(r))
 
-        def sort_key(p):
-            try: return (0, int(p))
-            except: return (1, p)
+        def sort_key(k):
+            ps, tipo_k = k
+            tipo_ord = {"piscina": 0, "precria": 1, "reservorio": 2}.get(tipo_k, 3)
+            try: return (tipo_ord, 0, int(ps))
+            except: return (tipo_ord, 1, ps)
 
         resultado = []
-        for ps in sorted(piscinas_dict.keys(), key=sort_key):
-            historial = piscinas_dict[ps]
+        for key in sorted(piscinas_dict.keys(), key=sort_key):
+            ps, tipo_k = key
+            historial = piscinas_dict[key]
             ultimo = historial[0] if historial else {}
-            tipo = ultimo.get("tipo", "piscina") if ultimo else "piscina"
             resultado.append({
                 "piscina": ps,
                 "ultimo": ultimo,
                 "historial": list(reversed(historial)),
-                "tipo": tipo
+                "tipo": tipo_k
             })
         return resultado
     except Exception as e:
@@ -501,6 +506,7 @@ def historico():
         piscina = request.args.get("piscina", "")
         dias    = int(request.args.get("dias", 99999))
         corrida = request.args.get("corrida", None)
+        tipo_filtro = request.args.get("tipo", None)
         if not sector or not piscina:
             return jsonify({"error": "sector y piscina son requeridos"}), 400
         con = get_conn()
@@ -513,7 +519,9 @@ def historico():
                 ORDER BY created_at ASC
             """, (sector, piscina, int(corrida)))
         else:
-            cur.execute("SELECT MAX(corrida) as mc FROM lecturas WHERE sector=%s AND piscina=%s", (sector, piscina))
+            tipo_where = "AND COALESCE(tipo,'piscina')=%s" if tipo_filtro else ""
+            tipo_params = [tipo_filtro] if tipo_filtro else []
+            cur.execute(f"SELECT MAX(corrida) as mc FROM lecturas WHERE sector=%s AND piscina=%s {tipo_where}", [sector, piscina] + tipo_params)
             row = cur.fetchone()
             max_corrida = row["mc"] if row and row["mc"] else 1
             if dias == 1:
@@ -549,14 +557,16 @@ def get_piscinas():
     try:
         sector = request.args.get("sector", "")
         con = get_conn()
-        cur = con.cursor()
-        cur.execute("SELECT DISTINCT piscina FROM lecturas WHERE sector=%s ORDER BY piscina", (sector,))
-        piscinas_raw = [r[0] for r in cur.fetchall()]
+        cur = con.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT DISTINCT piscina, COALESCE(tipo,'piscina') as tipo FROM lecturas WHERE sector=%s ORDER BY piscina", (sector,))
+        rows = cur.fetchall()
         cur.close(); con.close()
-        def sort_key(p):
-            try: return (0, int(p))
-            except: return (1, p)
-        return jsonify({"piscinas": sorted(piscinas_raw, key=sort_key)})
+        def sort_key(r):
+            tipo_ord = {"piscina": 0, "precria": 1, "reservorio": 2}.get(r["tipo"], 3)
+            try: return (tipo_ord, 0, int(r["piscina"]))
+            except: return (tipo_ord, 1, r["piscina"])
+        sorted_rows = sorted([dict(r) for r in rows], key=sort_key)
+        return jsonify({"piscinas": [r["piscina"] for r in sorted_rows], "piscinas_tipo": sorted_rows})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
