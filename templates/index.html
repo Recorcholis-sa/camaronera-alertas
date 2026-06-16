@@ -639,12 +639,23 @@ async function verResumenCampo(sector) {
     return;
   }
 
-  const promesas = dp.piscinas.map(ps =>
-    fetch(`/api/historico?sector=${encodeURIComponent(sector)}&piscina=${encodeURIComponent(ps)}&dias=1`)
-      .then(r=>r.json()).then(d=>({ps, dato: d.datos && d.datos.length ? d.datos[d.datos.length-1] : null}))
-  );
+  // Usar piscinas_tipo si está disponible para distinguir piscina vs precria
+  const piscinasTipo = dp.piscinas_tipo || dp.piscinas.map(ps => ({piscina: ps, tipo: 'piscina'}));
+
+  const promesas = piscinasTipo.map(pt => {
+    const ps = pt.piscina || pt;
+    const tipo = pt.tipo || 'piscina';
+    return fetch(`/api/historico?sector=${encodeURIComponent(sector)}&piscina=${encodeURIComponent(ps)}&tipo=${encodeURIComponent(tipo)}&dias=1`)
+      .then(r=>r.json()).then(d=>({ps, tipo, dato: d.datos && d.datos.length ? d.datos[d.datos.length-1] : null}));
+  });
   const resultados = await Promise.all(promesas);
-  resultados.sort((a,b) => { const na=parseInt(a.ps), nb=parseInt(b.ps); return isNaN(na)||isNaN(nb) ? a.ps.localeCompare(b.ps) : na-nb; });
+  resultados.sort((a,b) => {
+    const tOrd = {piscina:0, precria:1, reservorio:2};
+    const ta = tOrd[a.tipo]??3, tb = tOrd[b.tipo]??3;
+    if (ta !== tb) return ta - tb;
+    const na=parseInt(a.ps), nb=parseInt(b.ps);
+    return isNaN(na)||isNaN(nb) ? a.ps.localeCompare(b.ps) : na-nb;
+  });
 
   const fechas = resultados.filter(r=>r.dato).map(r=>r.dato.fecha);
   const fechasOrdenadas = fechas.slice().sort((a,b) => {
