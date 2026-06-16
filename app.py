@@ -95,7 +95,6 @@ def guardar_lecturas(sector, fecha, piscinas):
     es_fimasa3 = sector == FIMASA3
     for p in piscinas:
         tipo = p.get("tipo", "piscina")
-        # Limpiar prefijos Pre/pre/Pc/pc del codigo de piscina
         import re as _re
         ps_limpio = _re.sub(r"(?i)^(pre|pc)\s*", "", str(p["ps"])).strip()
         p["ps"] = ps_limpio if ps_limpio else p["ps"]
@@ -146,7 +145,6 @@ def guardar_lecturas(sector, fecha, piscinas):
     cur.close()
     con.close()
 
-# ── Usuarios ───────────────────────────────────────────────
 def leer_usuarios():
     usuarios = []
     try:
@@ -166,7 +164,6 @@ def leer_usuarios():
         emails_existentes = {u["email"] for u in usuarios}
         for u in base:
             if u.get("email") not in emails_existentes:
-                # Si tiene todos los campos o el nombre es "Gerencia", asumir rol gerencia
                 if u.get("rol") == "gerencia" or u.get("nombre","").lower() == "gerencia":
                     u["rol"] = "gerencia"
                     u["campos"] = CAMPOS
@@ -195,7 +192,6 @@ def guardar_usuario_db(nombre, email, whatsapp, campos, rol):
         print(f"Error guardando usuario: {e}")
         return False
 
-# ── Resumen por campo ──────────────────────────────────────
 def get_resumen_campo(sector, dias=3):
     try:
         con = get_conn()
@@ -261,7 +257,6 @@ def separar_por_tipo(piscinas_data):
     reservorio = [p for p in piscinas_data if p.get("tipo","piscina") == "reservorio"]
     return piscinas, precrias, reservorio
 
-# ── Helpers Fimasa 3 ───────────────────────────────────────
 def tiene_alerta_fimasa3(u):
     vals = [u.get("oxigeno_00"), u.get("oxigeno_02"), u.get("oxigeno_am"), u.get("oxigeno_pm")]
     return any(v is not None and v < O2_VIGILANCIA for v in vals)
@@ -270,7 +265,6 @@ def tiene_critico_fimasa3(u):
     vals = [u.get("oxigeno_00"), u.get("oxigeno_02"), u.get("oxigeno_am"), u.get("oxigeno_pm")]
     return any(v is not None and v < O2_CRITICO for v in vals)
 
-# ── Rutas ──────────────────────────────────────────────────
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -306,26 +300,19 @@ def procesar():
         return jsonify({"error": "No se recibio foto"}), 400
     archivo = request.files["foto"]
     campo   = request.form.get("campo", "")
-    # Preprocesar imagen: mejorar contraste y nitidez para mejor lectura
     try:
         from PIL import Image, ImageEnhance, ImageFilter
         import io
         img_bytes = archivo.read()
         img = Image.open(io.BytesIO(img_bytes))
-        # Convertir a RGB
         if img.mode in ('RGBA', 'P', 'L'):
             img = img.convert('RGB')
-        # Redimensionar a max 2000px manteniendo proporcion
         max_size = 2000
         if img.width > max_size or img.height > max_size:
             img.thumbnail((max_size, max_size), Image.LANCZOS)
-        # Mejorar contraste
         img = ImageEnhance.Contrast(img).enhance(1.4)
-        # Mejorar nitidez
         img = ImageEnhance.Sharpness(img).enhance(2.0)
-        # Mejorar brillo levemente
         img = ImageEnhance.Brightness(img).enhance(1.1)
-        # Guardar con buena calidad
         output = io.BytesIO()
         img.save(output, format='JPEG', quality=92, optimize=True)
         img_bytes = output.getvalue()
@@ -343,7 +330,7 @@ def procesar():
         total = len(datos.get("piscinas", []))
         print(f"IA respondio: {total} registros")
         for p in datos.get("piscinas", [])[:5]:
-            print(f"  -> ps={p.get('ps')} tipo={p.get('tipo','piscina')} o2am={p.get('oxigeno_am')}")
+            print(f"  -> ps={p.get('ps')} tipo={p.get('tipo','piscina')} o2am={p.get('oxigeno_am')} o2pm={p.get('oxigeno_pm')}")
         if campo:
             datos["sector"] = campo
         fecha_hoy = (datetime.utcnow() - timedelta(hours=5)).strftime("%d/%m/%Y")
@@ -375,13 +362,11 @@ def resumen_diario():
             rol = u.get("rol", "biologo")
 
             if rol == "gerencia":
-                # Gerencia siempre recibe UN SOLO email consolidado
                 asunto, cuerpo, html_body = construir_resumen_gerencia_completo(fecha_hoy)
                 if asunto:
                     enviar_email_postmark(u["email"], u.get("nombre",""), asunto, cuerpo, html=html_body)
                     enviados += 1
             else:
-                # Biólogos reciben un email por cada campo asignado
                 for campo in u.get("campos", []):
                     piscinas_data = get_resumen_campo(campo, dias=4)
                     if not piscinas_data:
@@ -414,7 +399,6 @@ def resumen_diario():
 
                     if alertas:
                         nivel = "ALERTA CRITICA" if criticos else "VIGILANCIA"
-                        # Asunto biólogo: nombre del campo primero
                         asunto = f"{campo} — {'🔴 CRITICO' if criticos else '🟡 VIGILANCIA'} — {fecha_hoy}"
                         cuerpo = f"{nivel}\nSector: {campo} | Fecha: {fecha_hoy}"
                         if campo == FIMASA3:
@@ -422,7 +406,6 @@ def resumen_diario():
                         else:
                             html_body = construir_html_biologo(campo, alertas, todas, fecha_hoy)
                     else:
-                        # Asunto biólogo todo normal: nombre del campo primero
                         asunto = f"{campo} — Todo Normal — {fecha_hoy}"
                         cuerpo = f"RESUMEN DIARIO\nSector: {campo} | Fecha: {fecha_hoy}\nTodas las piscinas en rango normal."
                         if campo == FIMASA3:
@@ -587,12 +570,13 @@ def extraer_con_ia(imagen_b64, mime, campo=""):
             "7mo valor = oxigeno_pm (medicion 16:00). "
             "8vo valor = temp_pm (medicion 16:00). "
             "Los rangos te ayudan a distinguir oxigeno de temperatura: oxigeno entre 1.0 y 15.0 mg/L, temperatura entre 20.0 y 35.0 grados C. "
+            "CRITICO: Si una posicion no tiene valor escrito o la celda esta en blanco, devuelve null para ese campo. NO inventes valores. "
             "Si en alguna posicion el valor no existe o es ilegible usa null. "
             "El block puede tener 3 secciones separadas por palabras escritas: PRECRIAS y RESERVORIO. "
             "Asigna tipo segun la seccion: antes de PRECRIAS = tipo piscina, bajo PRECRIAS = tipo precria, bajo RESERVORIO = tipo reservorio. "
             "En la seccion PRECRIAS puede aparecer Pre, pre, Pc, pc u otras siglas antes del numero en columna PS. Ignoralas y usa solo el numero. "
             "Lee cada valor DOS VECES verificando digito por digito. "
-            'Devuelve SOLO JSON valido sin texto extra ni markdown: {"sector":"Fimasa 3","piscinas":[{"ps":"1","tipo":"piscina","oxigeno_00":3.3,"temp_00":28.0,"oxigeno_02":2.8,"temp_02":28.1,"oxigeno_am":2.4,"temp_am":27.8,"oxigeno_pm":12.5,"temp_pm":32.0}]}'
+            'Devuelve SOLO JSON valido sin texto extra ni markdown: {"sector":"Fimasa 3","piscinas":[{"ps":"1","tipo":"piscina","oxigeno_00":3.3,"temp_00":28.0,"oxigeno_02":2.8,"temp_02":28.1,"oxigeno_am":2.4,"temp_am":27.8,"oxigeno_pm":null,"temp_pm":null}]}'
         )
         max_tokens = 4000
     else:
@@ -601,19 +585,25 @@ def extraer_con_ia(imagen_b64, mime, campo=""):
             "Lee cada valor DOS VECES antes de confirmar. "
             "Rangos tipicos: oxigeno 1.0-15.0 mg/L, temperatura 20.0-35.0 grados C. "
             "Distingue con cuidado: 3 vs 8, 1 vs 7, 5 vs 6, 0 vs 9, punto decimal vs coma. "
+            "CRITICO: Si una celda esta en blanco, tiene guion, o no tiene numero escrito, devuelve null para ese campo. "
+            "NO copies ni repitas el valor AM en la columna PM si PM esta vacia. "
+            "Es completamente normal recibir fotos solo con datos AM (manana) donde oxigeno_pm y temp_pm van null. "
             "Si un valor es ilegible usa null. "
             "El block puede tener 3 secciones separadas por palabras escritas: PRECRIAS y RESERVORIO. "
             "Asigna tipo segun la seccion donde este cada fila: "
             "filas antes de PRECRIAS = tipo piscina, "
             "filas despues de PRECRIAS y antes de RESERVORIO = tipo precria, "
             "filas despues de RESERVORIO = tipo reservorio. "
-            "Si no hay secciones PRECRIAS ni RESERVORIO, todas son tipo piscina. " "IMPORTANTE: Busca activamente las palabras PRECRIAS y RESERVORIO escritas en cualquier parte del block. " "Cuando encuentres la palabra PRECRIAS (puede estar escrita en la columna PS o como titulo de seccion), TODAS las filas que vienen despues son tipo precria hasta que encuentres RESERVORIO. " "Cuando encuentres la palabra RESERVORIO, TODAS las filas siguientes son tipo reservorio. " "NO importa si los numeros de piscina en la seccion PRECRIAS coinciden con numeros de piscinas normales. Si la fila esta despues de la palabra PRECRIAS, es tipo precria obligatoriamente. "
+            "Si no hay secciones PRECRIAS ni RESERVORIO, todas son tipo piscina. "
+            "IMPORTANTE: Busca activamente las palabras PRECRIAS y RESERVORIO escritas en cualquier parte del block. "
+            "Cuando encuentres la palabra PRECRIAS (puede estar escrita en la columna PS o como titulo de seccion), TODAS las filas que vienen despues son tipo precria hasta que encuentres RESERVORIO. "
+            "Cuando encuentres la palabra RESERVORIO, TODAS las filas siguientes son tipo reservorio. "
+            "NO importa si los numeros de piscina en la seccion PRECRIAS coinciden con numeros de piscinas normales. Si la fila esta despues de la palabra PRECRIAS, es tipo precria obligatoriamente. "
             "En la columna PS de las precrias puede aparecer Pre, pre, Pc, pc u otras siglas antes del numero (ej: Pre 1, Pc 2). Ignoralas y usa solo el numero (ej: Pre 1 = ps 1, Pc 2 = ps 2). "
-            'Devuelve SOLO JSON valido sin texto extra ni explicaciones: {"sector":"nombre","piscinas":[{"ps":"codigo","tipo":"piscina","oxigeno_am":3.5,"oxigeno_pm":3.2,"temp_am":28.1,"temp_pm":27.8}]}'
+            'Devuelve SOLO JSON valido sin texto extra ni explicaciones: {"sector":"nombre","piscinas":[{"ps":"1","tipo":"piscina","oxigeno_am":3.5,"oxigeno_pm":null,"temp_am":28.1,"temp_pm":null}]}'
         )
         max_tokens = 4096
 
-    # Usar Sonnet para campos grandes, Haiku para los demas
     modelo = "claude-sonnet-4-6" if campo in CAMPOS_GRANDES else "claude-haiku-4-5-20251001"
     print(f"Usando modelo: {modelo} para campo: {campo}")
     payload = {
@@ -697,7 +687,6 @@ def evaluar_y_notificar(datos, campo_param):
         vistos.add(u.get("email"))
         rol = u.get("rol", "biologo")
         if rol == "gerencia":
-            # Gerencia recibe un solo consolidado de todos los campos
             asunto, cuerpo, html_body = construir_resumen_gerencia_completo(fecha)
             if asunto:
                 enviar_email_postmark(u["email"], u.get("nombre",""), asunto, cuerpo, html=html_body)
@@ -708,7 +697,6 @@ def evaluar_y_notificar(datos, campo_param):
             else:
                 criticos = [a for a in alertas if a["estado_am"]=="critico" or a["estado_pm"]=="critico"]
             nivel = "ALERTA CRITICA" if criticos else "VIGILANCIA"
-            # Asunto biólogo: campo primero
             asunto = f"{sector} — {'🔴 CRITICO' if criticos else '🟡 VIGILANCIA'} — {fecha}"
             cuerpo = f"{nivel}\nSector: {sector} | Fecha: {fecha}\n"
             if sector == FIMASA3:
@@ -720,7 +708,6 @@ def evaluar_y_notificar(datos, campo_param):
     print(f"Emails enviados: {enviados}")
     return enviados
 
-# ── HTML helpers ───────────────────────────────────────────
 def celda_o2(val):
     if val is None:
         return '<td style="padding:6px 10px;text-align:center;color:#9ca3af">—</td>'
@@ -788,13 +775,7 @@ def seccion_reservorio(reservorio):
           <th style="padding:8px;text-align:center;font-size:12px;color:#6b7280;border-bottom:1px solid #e5e7eb">T PM</th>
         </tr></thead><tbody>{filas}</tbody></table></div>"""
 
-# ── Email gerencia: UN SOLO EMAIL con todos los campos ─────
 def construir_resumen_gerencia_completo(fecha):
-    """
-    Construye UN SOLO email para gerencia con:
-    - Campos con alertas: detalle completo de piscinas
-    - Campos sin novedad: solo promedios de O2 y temperatura
-    """
     campos_alerta = []
     campos_normal = []
     total_criticos = 0
@@ -819,7 +800,6 @@ def construir_resumen_gerencia_completo(fecha):
                         (p["ultimo"].get("oxigeno_am") is not None and p["ultimo"]["oxigeno_am"] < O2_CRITICO) or
                         (p["ultimo"].get("oxigeno_pm") is not None and p["ultimo"]["oxigeno_pm"] < O2_CRITICO)]
 
-        # Promedios solo de piscinas
         o2am_v = [p["ultimo"]["oxigeno_am"] for p in ps_data if p["ultimo"].get("oxigeno_am") is not None]
         o2pm_v = [p["ultimo"]["oxigeno_pm"] for p in ps_data if p["ultimo"].get("oxigeno_pm") is not None]
         tam_v  = [p["ultimo"]["temp_am"] for p in ps_data if p["ultimo"].get("temp_am") is not None]
@@ -864,7 +844,6 @@ def construir_resumen_gerencia_completo(fecha):
         nivel_texto = "TODO NORMAL"
         asunto = f"Resumen Alertas — {fecha} — Normal"
 
-    # ── Sección campos con alertas ─────────────────────────
     html_alertas = ""
     for info in campos_alerta:
         campo = info["campo"]
@@ -901,7 +880,6 @@ def construir_resumen_gerencia_completo(fecha):
           {bloque_ps}{bloque_pr}
         </div>"""
 
-    # ── Sección campos sin novedad ─────────────────────────
     html_normal = ""
     if campos_normal:
         filas_norm = ""
@@ -949,11 +927,9 @@ def construir_resumen_gerencia_completo(fecha):
       <div style="background:#f9fafb;padding:10px;text-align:center;font-size:11px;color:#9ca3af;border-radius:0 0 12px 12px;border:1px solid #e5e7eb;border-top:none">Sistema de Alertas Camaronera Recorcholis S.A.</div>
     </div>"""
 
-    # Bloque oculto para WhatsApp (leido por Google Apps Script)
     wa_campos = []
     for campo in CAMPOS:
         criticas_wa = []
-        # Buscar piscinas criticas de este campo
         for info in campos_alerta:
             if info["campo"] == campo:
                 for p in info["ps_data"] + info["pr_data"]:
@@ -969,16 +945,13 @@ def construir_resumen_gerencia_completo(fecha):
 
     import json as _json
     wa_json = _json.dumps({"fecha": fecha, "campos": wa_campos}, ensure_ascii=False)
-    wa_block = f'''<div style="display:none">[WA_ALERT]
-{wa_json}
-[/WA_ALERT]</div>'''
+    wa_block = f'''<div style="display:none">[WA_ALERT]\n{wa_json}\n[/WA_ALERT]</div>'''
 
     html = wa_block + html
 
     cuerpo = f"{nivel_texto} — {fecha} | Criticas: {total_criticos} | Vigilancia: {total_vigilancia} | Sin novedad: {len(campos_normal)}"
     return asunto, cuerpo, html
 
-# ── Emails biólogo ─────────────────────────────────────────
 def construir_html_biologo(sector, alertas_data, todas_piscinas, fecha):
     ps_todas    = [p for p in todas_piscinas if p.get("tipo","piscina") == "piscina"]
     pr_todas    = [p for p in todas_piscinas if p.get("tipo","piscina") == "precria"]
@@ -1124,7 +1097,6 @@ def construir_html_biologo_fimasa3(sector, alertas_data, todas_piscinas, fecha):
     return html
 
 def bloque_promedios_fimasa3(piscinas):
-    """Bloque de promedios para Fimasa 3 con las 4 mediciones."""
     def prom(lst, key):
         vals = [p.get(key) for p in lst if p.get(key) is not None]
         return round(sum(vals)/len(vals), 2) if vals else "—"
