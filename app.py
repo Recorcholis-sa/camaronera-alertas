@@ -591,7 +591,7 @@ def extraer_con_ia(imagen_b64, mime, campo=""):
             "Los valores de CALIBRACION (numeros como 40, 47, 49, 51) y NIVEL (numeros como 200, 210, 220) NO son oxigeno ni temperatura — ignoralos totalmente. "
             "Rangos tipicos: oxigeno 1.0-15.0 mg/L, temperatura 20.0-35.0 grados C. "
             "Distingue con cuidado: 3 vs 8, 1 vs 7, 5 vs 6, 0 vs 9, punto decimal vs coma. "
-            "CRITICO: Si una celda esta en blanco, tiene guion, o no tiene numero escrito, devuelve null para ese campo. "
+            "CRITICO: Solo incluye en el JSON las filas donde puedas ver claramente un numero o codigo escrito en la columna PS. Si una fila tiene el PS en blanco, ilegible, o no estas seguro de lo que dice, NO la incluyas. Es mejor omitir una fila dudosa que inventar datos. "
             "NO copies ni repitas el valor AM en la columna PM si PM esta vacia. "
             "Es completamente normal recibir fotos solo con datos AM (manana) donde oxigeno_pm y temp_pm van null. "
             "Si un valor es ilegible usa null. "
