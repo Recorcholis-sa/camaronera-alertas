@@ -611,7 +611,8 @@ def extraer_con_ia(imagen_b64, mime, campo=""):
         )
         max_tokens = 4096
 
-    modelo = "claude-opus-4-8"
+    CAMPOS_OPUS = {"Recorcholis 1", "Caesa 2", "Rolesa 2", "Pantrusko 2", "Fimasa 3"}
+    modelo = "claude-opus-4-8" if campo in CAMPOS_OPUS else "claude-sonnet-4-6"
     print(f"Usando modelo: {modelo} para campo: {campo}")
     payload = {
         "model": modelo,
