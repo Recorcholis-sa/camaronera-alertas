@@ -631,7 +631,10 @@ async function verResumenCampo(sector) {
   document.getElementById('resumen-tabla').innerHTML = '<div class="spinner" style="margin:20px auto"></div>';
   setCampoBg(sector);
   irA('v-resumen');
-
+if (esFimasa3) {
+    await cargarHeatmapFimasa3(sector);
+    return;
+  }
   const rp = await fetch(`/api/piscinas?sector=${encodeURIComponent(sector)}`);
   const dp = await rp.json();
   if (!dp.piscinas || !dp.piscinas.length) {
@@ -1408,7 +1411,138 @@ function mostrarEstado(id,tipo,msg){
   const clases={ok:'ok',err:'err',loading:'loading'};
   const spin=tipo==='loading'?'<div class="spinner"></div>':`<div class="estado-icon">${iconos[tipo]}</div>`;
   document.getElementById(id).innerHTML=`<div class="estado ${clases[tipo]}">${spin}<p>${msg.replace(/\n/g,'<br>')}</p></div>`;
-}
+}// ── AGREGAR ANTES DEL CIERRE </script> EN index.html ──────────────────────────
+
+async function cargarHeatmapFimasa3(sector) {
+  document.getElementById('resumen-tabla').innerHTML = '<div class="spinner" style="margin:20px auto"></div>';
+  try {
+    const rp = await fetch(`/api/piscinas?sector=${encodeURIComponent(sector)}`);
+    const dp = await rp.json();
+    if (!dp.piscinas || !dp.piscinas.length) {
+      document.getElementById('resumen-tabla').innerHTML = '<p style="text-align:center;color:#6b7280;padding:20px">Sin datos aún.</p>';
+      return;
+    }
+    const piscinasTipo = dp.piscinas_tipo || dp.piscinas.map(ps => ({piscina: ps, tipo: 'piscina'}));
+    const soloPiscinas = piscinasTipo.filter(p => (p.tipo||'piscina') === 'piscina').map(p => p.piscina);
+
+    // Cargar historial de 14 dias para cada piscina
+    const promesas = soloPiscinas.map(ps =>
+      fetch(`/api/historico?sector=${encodeURIComponent(sector)}&piscina=${encodeURIComponent(ps)}&dias=14`)
+        .then(r => r.json()).then(d => ({ps, datos: d.datos || []}))
+    );
+    const resultados = await Promise.all(promesas);
+
+    // Fechas unicas ordenadas ascendente
+    const fechasSet = new Set();
+    resultados.forEach(r => r.datos.forEach(d => fechasSet.add(d.fecha)));
+    const fechas = Array.from(fechasSet).sort((a,b) => {
+      const [da,ma,ya] = a.split('/'); const [db,mb,yb] = b.split('/');
+      return new Date(ya+'-'+ma+'-'+da) - new Date(yb+'-'+mb+'-'+db);
+    });
+
+    // Lookup {ps: {fecha: oxigeno_am}}
+    const lookup = {};
+    resultados.forEach(r => {
+      lookup[r.ps] = {};
+      r.datos.forEach(d => { lookup[r.ps][d.fecha] = d.oxigeno_am; });
+    });
+
+    // Ordenar piscinas numericamente
+    soloPiscinas.sort((a,b) => {
+      const na = parseInt(a), nb = parseInt(b);
+      return isNaN(na)||isNaN(nb) ? a.localeCompare(b) : na-nb;
+    });
+
+    // Colores segun valor de O2
+    function o2ToColor(v) {
+      if (v == null) return { bg: '#f3f4f6', text: '#9ca3af' };
+      if (v < 2.5)  return { bg: '#7f1d1d', text: 'white' };
+      if (v < 2.9)  return { bg: '#dc2626', text: 'white' };
+      if (v < 3.2)  return { bg: '#f97316', text: 'white' };
+      if (v < 3.5)  return { bg: '#fbbf24', text: '#374151' };
+      if (v < 3.8)  return { bg: '#86efac', text: '#065f46' };
+      if (v < 4.2)  return { bg: '#22c55e', text: 'white' };
+      return { bg: '#15803d', text: 'white' };
+    }
+
+    const CELDA = 48;
+    let html = '<div style="margin-bottom:12px">';
+
+    // Leyenda de colores
+    html += '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:12px;align-items:center">';
+    html += '<span style="font-size:11px;font-weight:700;color:#374151;margin-right:4px">O\u2082 05:00 AM:</span>';
+    [
+      ['< 2.5',  '#7f1d1d', 'white'],
+      ['2.5-2.9','#dc2626', 'white'],
+      ['2.9-3.2','#f97316', 'white'],
+      ['3.2-3.5','#fbbf24', '#374151'],
+      ['3.5-3.8','#86efac', '#065f46'],
+      ['3.8-4.2','#22c55e', 'white'],
+      ['> 4.2',  '#15803d', 'white'],
+    ].forEach(([lbl,bg,txt]) => {
+      html += `<span style="background:${bg};color:${txt};padding:3px 7px;border-radius:6px;font-size:11px;font-weight:600">${lbl}</span>`;
+    });
+    html += '</div>';
+
+    // Tabla heatmap
+    html += '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:10px;border:1px solid #e5e7eb">';
+    html += '<table style="border-collapse:collapse;min-width:100%">';
+
+    // Encabezado — fechas
+    html += '<thead><tr>';
+    html += `<th style="padding:7px 10px;background:#1e3a2e;color:white;font-size:12px;text-align:left;position:sticky;left:0;z-index:2;min-width:44px;border-right:2px solid #0F6E56">PS</th>`;
+    fechas.forEach(f => {
+      const [d,m] = f.split('/');
+      html += `<th style="padding:6px 4px;background:#1e3a2e;color:white;font-size:11px;text-align:center;min-width:${CELDA}px;white-space:nowrap">${d}/${m}</th>`;
+    });
+    html += `<th style="padding:6px 8px;background:#0F6E56;color:white;font-size:11px;text-align:center;min-width:54px;border-left:2px solid #0a4a38">PROM</th>`;
+    html += '</tr></thead><tbody>';
+
+    // Filas — piscinas
+    soloPiscinas.forEach((ps, i) => {
+      const rowBg = i % 2 === 0 ? '#ffffff' : '#f9fafb';
+      html += '<tr>';
+      html += `<td style="padding:6px 10px;font-weight:700;font-size:13px;color:#0F6E56;position:sticky;left:0;background:${rowBg};z-index:1;border-right:2px solid #e5e7eb;cursor:pointer" onclick="verDetallePiscina('${ps}')">${ps}</td>`;
+
+      const vals = [];
+      fechas.forEach(f => {
+        const v = (lookup[ps] && lookup[ps][f] != null) ? lookup[ps][f] : null;
+        if (v != null) vals.push(v);
+        const c = o2ToColor(v);
+        html += `<td style="padding:5px 3px;text-align:center;background:${c.bg};color:${c.text};font-size:13px;font-weight:600;min-width:${CELDA}px">${v != null ? v : '\u2014'}</td>`;
+      });
+
+      const promV = vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
+      const promS = promV != null ? promV.toFixed(2) : '\u2014';
+      const cp = o2ToColor(promV);
+      html += `<td style="padding:5px 8px;text-align:center;background:${cp.bg};color:${cp.text};font-size:13px;font-weight:700;border-left:2px solid #e5e7eb">${promS}</td>`;
+      html += '</tr>';
+    });
+
+    // Fila de promedios por fecha
+    html += '<tr style="border-top:2px solid #e5e7eb">';
+    html += `<td style="padding:6px 10px;font-weight:700;font-size:11px;color:#6b7280;background:#f0fdf4;position:sticky;left:0;z-index:1;border-right:2px solid #e5e7eb">PROM</td>`;
+    fechas.forEach(f => {
+      const valsF = soloPiscinas.map(ps => (lookup[ps] && lookup[ps][f] != null) ? lookup[ps][f] : null).filter(v => v != null);
+      const promF = valsF.length ? valsF.reduce((a,b)=>a+b,0)/valsF.length : null;
+      const promS = promF != null ? promF.toFixed(2) : '\u2014';
+      const c = o2ToColor(promF);
+      html += `<td style="padding:5px 3px;text-align:center;background:${c.bg};color:${c.text};font-size:12px;font-weight:700;min-width:${CELDA}px">${promS}</td>`;
+    });
+    html += `<td style="background:#f0fdf4;border-left:2px solid #e5e7eb"></td>`;
+    html += '</tr>';
+
+    html += '</tbody></table></div>';
+    html += '<p style="font-size:11px;color:#9ca3af;text-align:center;margin-top:8px">\u2190 Desliza para ver d\u00edas anteriores \u00b7 Toca PS para ver historial detallado \u2192</p>';
+    html += '</div>';
+
+    document.getElementById('resumen-tabla').innerHTML = html;
+    document.getElementById('resumen-fecha').textContent = `Historial O\u2082 05:00 AM \u2014 \u00faltimos 14 d\u00edas`;
+
+  } catch(e) {
+    document.getElementById('resumen-tabla').innerHTML = `<p style="color:#ef4444;text-align:center;padding:20px">Error: ${e.message}</p>`;
+  }
+}  
 </script>
 </body>
 </html>
