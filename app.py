@@ -336,7 +336,8 @@ def procesar():
         fecha_hoy = (datetime.utcnow() - timedelta(hours=5)).strftime("%d/%m/%Y")
         datos["fecha"] = fecha_hoy
         guardar_lecturas(datos.get("sector", campo), fecha_hoy, datos.get("piscinas", []))
-        enviados = evaluar_y_notificar(datos, campo)
+        # enviados = evaluar_y_notificar(datos, campo)  # Temporalmente desactivado
+        enviados = 0
         return jsonify({
             "ok": True,
             "fecha": fecha_hoy,
