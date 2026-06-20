@@ -627,7 +627,7 @@ def extraer_con_ia(imagen_b64, mime, campo=""):
         headers={"Content-Type":"application/json","x-api-key":ANTHROPIC_API_KEY,"anthropic-version":"2023-06-01"}
     )
     try:
-        with urllib.request.urlopen(req, timeout=60) as r:
+        with urllib.request.urlopen(req, timeout=110) as r:
             resp = json.loads(r.read())
     except urllib.error.HTTPError as e:
         err_body = e.read().decode()
