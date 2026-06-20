@@ -633,8 +633,8 @@ async function verResumenCampo(sector) {
   irA('v-resumen');
 if (esFimasa3) {
     await cargarHeatmapFimasa3(sector);
-    return;
-  }
+    return; 
+}
   const rp = await fetch(`/api/piscinas?sector=${encodeURIComponent(sector)}`);
   const dp = await rp.json();
   if (!dp.piscinas || !dp.piscinas.length) {
