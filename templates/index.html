@@ -1502,7 +1502,7 @@ async function cargarHeatmapFimasa3(sector) {
     soloPiscinas.forEach((ps, i) => {
       const rowBg = i % 2 === 0 ? '#ffffff' : '#f9fafb';
       html += '<tr>';
-      html += `<td style="padding:6px 10px;font-weight:700;font-size:13px;color:#0F6E56;position:sticky;left:0;background:${rowBg};z-index:1;border-right:2px solid #e5e7eb;cursor:pointer" onclick="verDetallePiscina('${ps}')">${ps}</td>`;
+      html += '<td style="padding:6px 10px;font-weight:700;font-size:13px;color:#0F6E56;position:sticky;left:0;background:'+rowBg+';z-index:1;border-right:2px solid #e5e7eb;cursor:pointer" onclick="verDetallePiscina(\''+ps+'\')">' + ps + '</td>';
 
       const vals = [];
       fechas.forEach(f => {
