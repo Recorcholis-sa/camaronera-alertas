@@ -578,7 +578,9 @@ def extraer_con_ia(imagen_b64, mime, campo=""):
             "El block puede tener 3 secciones separadas por palabras escritas: PRECRIAS y RESERVORIO. "
             "Asigna tipo segun la seccion: antes de PRECRIAS = tipo piscina, bajo PRECRIAS = tipo precria, bajo RESERVORIO = tipo reservorio. "
             "En la seccion PRECRIAS puede aparecer Pre, pre, Pc, pc u otras siglas antes del numero en columna PS. Ignoralas y usa solo el numero. "
-            "Lee cada valor DOS VECES verificando digito por digito. "
+            "IMPORTANTE: Algunas piscinas tienen sufijos A o B (ej: 7A, 7B, 14A, 14B, 16A, 16B, 23A, 23B). "
+            "Conserva SIEMPRE el sufijo exactamente como esta escrito en el block — mayuscula o minuscula. "
+            "7A y 7B son piscinas DIFERENTES, no las combines ni ignores el sufijo. "
             'Devuelve SOLO JSON valido sin texto extra ni markdown: {"sector":"Fimasa 3","piscinas":[{"ps":"1","tipo":"piscina","oxigeno_00":3.3,"temp_00":28.0,"oxigeno_02":2.8,"temp_02":28.1,"oxigeno_am":2.4,"temp_am":27.8,"oxigeno_pm":null,"temp_pm":null}]}'
         )
         max_tokens = 4000
