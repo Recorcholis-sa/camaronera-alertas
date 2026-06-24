@@ -336,8 +336,7 @@ def procesar():
         fecha_hoy = (datetime.utcnow() - timedelta(hours=5)).strftime("%d/%m/%Y")
         datos["fecha"] = fecha_hoy
         guardar_lecturas(datos.get("sector", campo), fecha_hoy, datos.get("piscinas", []))
-        # enviados = evaluar_y_notificar(datos, campo)  # Temporalmente desactivado
-        enviados = 0
+        enviados = evaluar_y_notificar(datos, campo)
         return jsonify({
             "ok": True,
             "fecha": fecha_hoy,
@@ -349,7 +348,111 @@ def procesar():
         print(f"ERROR: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-@app.route("/api/resumen-diario", methods=["GET", "POST"])
+@app.route("/api/ingresar-manual", methods=["POST"])
+def ingresar_manual():
+    try:
+        data    = request.get_json()
+        campo   = data.get("campo", "")
+        piscinas = data.get("piscinas", [])
+        if not campo or not piscinas:
+            return jsonify({"ok": False, "error": "Campo y piscinas son requeridos"}), 400
+        fecha_hoy = (datetime.utcnow() - timedelta(hours=5)).strftime("%d/%m/%Y")
+        guardar_lecturas(campo, fecha_hoy, piscinas)
+        datos = {"sector": campo, "fecha": fecha_hoy, "piscinas": piscinas}
+        enviados = evaluar_y_notificar(datos, campo)
+        total = len(piscinas)
+        print(f"Ingreso manual: {total} piscinas en {campo}, {enviados} emails enviados")
+        return jsonify({
+            "ok": True,
+            "fecha": fecha_hoy,
+            "sector": campo,
+            "piscinas": piscinas,
+            "alertas_enviadas": enviados
+        })
+    except Exception as e:
+        print(f"ERROR ingresar-manual: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/piscinas-campo", methods=["GET", "POST"])
+def piscinas_campo():
+    """Obtener o guardar la configuracion de piscinas de un campo."""
+    if request.method == "POST":
+        try:
+            data  = request.get_json()
+            campo = data.get("campo", "")
+            lista = data.get("piscinas", [])  # [{ps, tipo}]
+            if not campo or not lista:
+                return jsonify({"ok": False, "error": "Campo y piscinas requeridos"}), 400
+            con = get_conn()
+            cur = con.cursor()
+            # Upsert en tabla config_piscinas
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS config_piscinas (
+                    id SERIAL PRIMARY KEY,
+                    sector TEXT NOT NULL,
+                    piscina TEXT NOT NULL,
+                    tipo TEXT DEFAULT 'piscina',
+                    orden INTEGER DEFAULT 0,
+                    UNIQUE(sector, piscina, tipo)
+                )
+            """)
+            # Borrar config anterior del campo
+            cur.execute("DELETE FROM config_piscinas WHERE sector=%s", (campo,))
+            for i, p in enumerate(lista):
+                cur.execute(
+                    "INSERT INTO config_piscinas (sector, piscina, tipo, orden) VALUES (%s,%s,%s,%s)",
+                    (campo, str(p["ps"]), p.get("tipo","piscina"), i)
+                )
+            con.commit()
+            cur.close(); con.close()
+            return jsonify({"ok": True, "total": len(lista)})
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e)}), 500
+    else:
+        try:
+            sector = request.args.get("sector", "")
+            if not sector:
+                return jsonify({"error": "sector requerido"}), 400
+            con = get_conn()
+            cur = con.cursor()
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS config_piscinas (
+                    id SERIAL PRIMARY KEY,
+                    sector TEXT NOT NULL,
+                    piscina TEXT NOT NULL,
+                    tipo TEXT DEFAULT 'piscina',
+                    orden INTEGER DEFAULT 0,
+                    UNIQUE(sector, piscina, tipo)
+                )
+            """)
+            cur.execute(
+                "SELECT piscina, tipo, orden FROM config_piscinas WHERE sector=%s ORDER BY orden",
+                (sector,)
+            )
+            rows = cur.fetchall()
+            cur.close(); con.close()
+            if rows:
+                return jsonify({"ok": True, "piscinas": [{"ps": r[0], "tipo": r[1]} for r in rows]})
+            else:
+                # Si no hay config, usar las piscinas existentes en lecturas
+                con2 = get_conn()
+                cur2 = con2.cursor()
+                cur2.execute(
+                    "SELECT DISTINCT piscina, COALESCE(tipo,'piscina') as tipo FROM lecturas WHERE sector=%s ORDER BY piscina",
+                    (sector,)
+                )
+                rows2 = cur2.fetchall()
+                cur2.close(); con2.close()
+                def sort_key(r):
+                    tipo_ord = {"piscina":0,"precria":1,"reservorio":2}.get(r[1],3)
+                    try: return (tipo_ord, 0, int(r[0]))
+                    except: return (tipo_ord, 1, r[0])
+                rows2 = sorted(rows2, key=sort_key)
+                return jsonify({"ok": True, "piscinas": [{"ps": r[0], "tipo": r[1]} for r in rows2]})
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e)}), 500
+
+
 def resumen_diario():
     try:
         print("Enviando resumen diario...")
