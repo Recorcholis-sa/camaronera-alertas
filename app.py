@@ -645,6 +645,24 @@ def get_piscinas():
         sector = request.args.get("sector", "")
         con = get_conn()
         cur = con.cursor(cursor_factory=RealDictCursor)
+        # Primero intentar usar config_piscinas si existe
+        try:
+            cur.execute(
+                "SELECT piscina, tipo, orden FROM config_piscinas WHERE sector=%s ORDER BY orden",
+                (sector,)
+            )
+            config_rows = cur.fetchall()
+        except:
+            config_rows = []
+        if config_rows:
+            cur.close(); con.close()
+            def sort_key_cfg(r):
+                tipo_ord = {"piscina":0,"precria":1,"reservorio":2}.get(r["tipo"],3)
+                try: return (tipo_ord, 0, int(r["piscina"]))
+                except: return (tipo_ord, 1, r["piscina"])
+            sorted_rows = sorted([dict(r) for r in config_rows], key=sort_key_cfg)
+            return jsonify({"piscinas": [r["piscina"] for r in sorted_rows], "piscinas_tipo": [{"piscina":r["piscina"],"tipo":r["tipo"]} for r in sorted_rows]})
+        # Si no hay config, usar lecturas
         cur.execute("SELECT DISTINCT piscina, COALESCE(tipo,'piscina') as tipo FROM lecturas WHERE sector=%s ORDER BY piscina", (sector,))
         rows = cur.fetchall()
         cur.close(); con.close()
