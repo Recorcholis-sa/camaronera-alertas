@@ -491,7 +491,7 @@ function descargarResumenIngreso(){
   const PROMH=68;
   let totalRows=ps.length+pr.length+res.length;
   let sections=(ps.length?1:0)+(pr.length?1:0)+(res.length?1:0);
-  const height=HEADERH+(sections*SECH)+(totalRows*ROWH)+PROMH+40;
+  const height=HEADERH+(sections*SECH)+(totalRows*ROWH)+(ps.length?PROMH:0)+(pr.length?SECH:0)+(res.length?SECH:0)+80;
   canvas.width=W;canvas.height=height;
   const ctx=canvas.getContext('2d');
 
