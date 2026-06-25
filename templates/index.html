@@ -45,6 +45,7 @@ h1{font-size:21px;font-weight:700;color:#0F6E56;margin-bottom:4px;text-align:cen
 .btn-sm-red{background:#dc2626;color:white}
 .btn-sm-blue{background:#6366f1;color:white}
 .btn-sm-gray{background:#e5e7eb;color:#374151}
+.btn-sm-purple{background:#6366f1;color:white}
 .estado{border-radius:14px;padding:18px;text-align:center;margin-bottom:14px}
 .estado.ok{background:#f0fdf4;border:1.5px solid #86efac}
 .estado.err{background:#fef2f2;border:1.5px solid #fca5a5}
@@ -110,8 +111,6 @@ td{padding:8px;border-bottom:1px solid #f3f4f6;color:#111}
 .metric-card.alerta-c .metric-val{color:#ef4444}
 .metric-card.alerta-v{background:#fffbeb}
 .metric-card.alerta-v .metric-val{color:#f59e0b}
-
-/* Ingreso manual styles */
 .ingreso-tabla{width:100%;border-collapse:collapse;font-size:13px}
 .ingreso-tabla th{background:#0F6E56;color:white;padding:8px 6px;text-align:center;font-size:11px;font-weight:600;border:1px solid #085041}
 .ingreso-tabla td{padding:4px 3px;border:1px solid #e5e7eb;vertical-align:middle;text-align:center}
@@ -127,8 +126,6 @@ td{padding:8px;border-bottom:1px solid #f3f4f6;color:#111}
 .seccion-header-row td{background:#1e3a2e;color:white;font-weight:700;font-size:12px;padding:6px 10px;text-align:left}
 .seccion-header-row.precria td{background:#4338ca}
 .seccion-header-row.reservorio td{background:#0891b2}
-
-/* Config piscinas */
 .ps-config-item{display:flex;align-items:center;gap:8px;padding:8px 10px;background:#f9fafb;border-radius:10px;margin-bottom:6px;border:1.5px solid #e5e7eb}
 .ps-config-num{font-weight:700;font-size:14px;color:#0F6E56;min-width:40px}
 .ps-tipo-select{padding:6px 8px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:12px;color:#374151;background:white;flex:1}
@@ -137,12 +134,10 @@ td{padding:8px;border-bottom:1px solid #f3f4f6;color:#111}
 </style>
 </head>
 <body>
-
 <div class="logo">🦐</div>
 <h1>Camaronera Alertas</h1>
 <p class="sub">Camaroneras Alertas</p>
 
-<!-- VIEW 1: ROL -->
 <div class="view active" id="v-inicio">
   <div class="card">
     <h2>¿Quién eres?</h2>
@@ -154,7 +149,6 @@ td{padding:8px;border-bottom:1px solid #f3f4f6;color:#111}
   </div>
 </div>
 
-<!-- VIEW 2: GERENCIA -->
 <div class="view" id="v-gerencia">
   <div class="card" style="max-width:520px">
     <button class="back-btn" onclick="irA('v-inicio')">← Volver</button>
@@ -177,7 +171,6 @@ td{padding:8px;border-bottom:1px solid #f3f4f6;color:#111}
   </div>
 </div>
 
-<!-- VIEW 3: BIÓLOGO -->
 <div class="view" id="v-biologo">
   <div class="card">
     <button class="back-btn" onclick="irA('v-inicio')">← Volver</button>
@@ -198,7 +191,6 @@ td{padding:8px;border-bottom:1px solid #f3f4f6;color:#111}
   </div>
 </div>
 
-<!-- VIEW 4: PARAMETRISTA - SELECCIONAR CAMPO -->
 <div class="view" id="v-parametrista">
   <div class="card">
     <button class="back-btn" onclick="irA('v-inicio')">← Volver</button>
@@ -209,7 +201,6 @@ td{padding:8px;border-bottom:1px solid #f3f4f6;color:#111}
   </div>
 </div>
 
-<!-- VIEW 5: INGRESO MANUAL DE PARÁMETROS -->
 <div class="view" id="v-ingreso">
   <div class="card" style="max-width:600px;padding:16px">
     <button class="back-btn" onclick="irA('v-parametrista')">← Cambiar campo</button>
@@ -218,27 +209,22 @@ td{padding:8px;border-bottom:1px solid #f3f4f6;color:#111}
       <button class="btn-sm btn-sm-gray" onclick="irAConfigPiscinas()" style="font-size:11px">⚙️ Configurar</button>
     </div>
     <p style="font-size:12px;color:#6b7280;margin-bottom:12px" id="ingreso-fecha"></p>
-
-    <!-- Selector turno -->
     <div style="margin-bottom:14px">
       <label style="display:block;font-size:12px;font-weight:600;color:#6b7280;margin-bottom:6px;text-transform:uppercase">Turno</label>
       <div class="tab-row" id="turno-tabs" style="margin-bottom:0"></div>
     </div>
-
     <div id="ingreso-tabla-wrap"><div class="spinner" style="margin:20px auto"></div></div>
     <div id="ingreso-estado" style="margin-top:10px"></div>
     <button class="btn btn-green" id="btn-guardar-ingreso" onclick="guardarIngreso()" style="margin-top:12px">💾 Guardar y enviar alertas</button>
+    <button class="btn btn-outline" id="btn-descargar-ingreso" onclick="descargarResumenIngreso()" style="display:none;margin-top:8px;border-color:#6366f1;color:#6366f1">📥 Descargar resumen imagen</button>
   </div>
 </div>
 
-<!-- VIEW 6: CONFIGURAR PISCINAS DEL CAMPO -->
 <div class="view" id="v-config-piscinas">
   <div class="card" style="max-width:480px">
     <button class="back-btn" onclick="irA('v-ingreso')">← Volver al ingreso</button>
     <h2 id="config-titulo">⚙️ Configurar piscinas</h2>
     <p style="font-size:13px;color:#6b7280;margin-bottom:16px">Define las piscinas, precrias y reservorios de este campo. Esta configuración se guarda permanentemente.</p>
-
-    <!-- Agregar nueva piscina -->
     <div style="background:#f0fdf8;border-radius:12px;padding:14px;margin-bottom:16px;border:1.5px solid #9FE1CB">
       <p style="font-size:12px;font-weight:700;color:#0F6E56;margin-bottom:10px">➕ Agregar piscina</p>
       <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
@@ -257,16 +243,12 @@ td{padding:8px;border-bottom:1px solid #f3f4f6;color:#111}
         <button class="btn-sm btn-sm-green" onclick="agregarPiscinaConfig()" style="padding:9px 14px">Agregar</button>
       </div>
     </div>
-
-    <!-- Lista actual -->
     <div id="config-lista"></div>
-
     <div id="config-estado" style="margin-top:10px"></div>
     <button class="btn btn-green" onclick="guardarConfigPiscinas()" style="margin-top:12px">💾 Guardar configuración</button>
   </div>
 </div>
 
-<!-- VIEW 7: RESUMEN CAMPO -->
 <div class="view" id="v-resumen">
   <div class="card" style="max-width:520px">
     <button class="back-btn" id="back-resumen" onclick="">← Volver</button>
@@ -276,7 +258,6 @@ td{padding:8px;border-bottom:1px solid #f3f4f6;color:#111}
   </div>
 </div>
 
-<!-- VIEW 8: DETALLE PISCINA -->
 <div class="view" id="v-detalle">
   <div class="card" style="max-width:520px">
     <button class="back-btn" id="back-detalle" onclick="">← Volver al campo</button>
@@ -299,25 +280,24 @@ td{padding:8px;border-bottom:1px solid #f3f4f6;color:#111}
 <script>
 const CAMPOS = ["Rolesa 1","Rolesa 2","Pantrusko 1","Pantrusko 2","Caesa 1","Caesa 2","Fimasa 1","Fimasa 2","Fimasa 3","Recorcholis 1","Recorcholis 2"];
 const FIMASA3 = "Fimasa 3";
-const CAMPOS_MULTI = new Set(["Fimasa 3", "Pantrusko 2"]); // 4 mediciones
+const CAMPOS_MULTI = new Set(["Fimasa 3", "Pantrusko 2"]);
 const GRUPOS = [
-  {nombre:"Rolesa",    campos:["Rolesa 1","Rolesa 2"]},
-  {nombre:"Pantrusko", campos:["Pantrusko 1","Pantrusko 2"]},
-  {nombre:"Caesa",     campos:["Caesa 1","Caesa 2"]},
-  {nombre:"Fimasa",    campos:["Fimasa 1","Fimasa 2","Fimasa 3"]},
+  {nombre:"Rolesa",campos:["Rolesa 1","Rolesa 2"]},
+  {nombre:"Pantrusko",campos:["Pantrusko 1","Pantrusko 2"]},
+  {nombre:"Caesa",campos:["Caesa 1","Caesa 2"]},
+  {nombre:"Fimasa",campos:["Fimasa 1","Fimasa 2","Fimasa 3"]},
   {nombre:"Recorcholis",campos:["Recorcholis 1","Recorcholis 2"]},
 ];
 const TURNOS_NORMAL = [
-  {id:"am", label:"☀️ AM (mañana)", keys:["oxigeno_am","temp_am"]},
-  {id:"pm", label:"🌅 PM (tarde)",  keys:["oxigeno_pm","temp_pm"]},
+  {id:"am",label:"☀️ AM (mañana)",keys:["oxigeno_am","temp_am"]},
+  {id:"pm",label:"🌅 PM (tarde)",keys:["oxigeno_pm","temp_pm"]},
 ];
 const TURNOS_MULTI = [
-  {id:"t00", label:"🌙 00:30", keys:["oxigeno_00","temp_00"]},
-  {id:"t02", label:"🌙 02:30", keys:["oxigeno_02","temp_02"]},
-  {id:"am",  label:"🌅 05:00", keys:["oxigeno_am","temp_am"]},
-  {id:"pm",  label:"☀️ 16:00", keys:["oxigeno_pm","temp_pm"]},
+  {id:"t00",label:"🌙 00:30",keys:["oxigeno_00","temp_00"]},
+  {id:"t02",label:"🌙 02:30",keys:["oxigeno_02","temp_02"]},
+  {id:"am",label:"🌅 05:00",keys:["oxigeno_am","temp_am"]},
+  {id:"pm",label:"☀️ 16:00",keys:["oxigeno_pm","temp_pm"]},
 ];
-
 const CAMPO_COLORS = {
   'Rolesa 1':{bg:'#3b0a0a'},'Rolesa 2':{bg:'#3b0a0a'},
   'Caesa 1':{bg:'#3b2a00'},'Caesa 2':{bg:'#3b2a00'},
@@ -326,696 +306,503 @@ const CAMPO_COLORS = {
   'Recorcholis 1':{bg:'#0a2e0a'},'Recorcholis 2':{bg:'#0a2e0a'},
 };
 
-let campoParametrista = null;
-let biologoCampos = [];
-let detalleSector = null;
-let detallePiscina = null;
-let detallePeriodo = 7;
-let detalleCorrida = null;
-let todasCorridas = [];
-let charts = {};
-let histOrigen = null;
-// Ingreso manual state
-let ingresoTurnoActual = "am";
-let ingresoPiscinasConfig = []; // [{ps, tipo}]
-let ingresoData = {}; // {ps_tipo_key: {oxigeno_am, temp_am, ...}}
-let configPiscinasTemp = []; // temp para pantalla de config
+let campoParametrista=null, biologoCampos=[], detalleSector=null, detallePiscina=null;
+let detallePeriodo=7, detalleCorrida=null, todasCorridas=[], charts={}, histOrigen=null;
+let ingresoTurnoActual="am", ingresoPiscinasConfig=[], ingresoData={}, configPiscinasTemp=[];
+let ultimoResumenGuardado = null; // Para descargar imagen
 
-function setCampoBg(campo) {
-  const c = CAMPO_COLORS[campo];
-  const bg = c ? c.bg : '#062e22';
-  document.body.style.background = bg;
-}
-function resetBg() { document.body.style.background = ''; }
+function setCampoBg(campo){const c=CAMPO_COLORS[campo];document.body.style.background=c?c.bg:'#062e22';}
+function resetBg(){document.body.style.background='';}
 
-function irA(vid) {
-  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+function irA(vid){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.getElementById(vid).classList.add('active');
   window.scrollTo(0,0);
-  if (['v-inicio','v-gerencia','v-biologo','v-parametrista','v-ingreso','v-config-piscinas'].includes(vid)) resetBg();
-  if (vid === 'v-biologo') renderCamposBiologo();
-  if (vid === 'v-parametrista') renderCamposSel();
-  if (vid === 'v-gerencia') cargarDashboard();
+  if(['v-inicio','v-gerencia','v-biologo','v-parametrista','v-ingreso','v-config-piscinas'].includes(vid))resetBg();
+  if(vid==='v-biologo')renderCamposBiologo();
+  if(vid==='v-parametrista')renderCamposSel();
+  if(vid==='v-gerencia')cargarDashboard();
 }
 
-// ── PARAMETRISTA ───────────────────────────────────────────
-function renderCamposSel() {
-  const grid = document.getElementById('campo-sel-grid');
-  grid.innerHTML = '';
-  CAMPOS.forEach(c => {
-    const btn = document.createElement('button');
-    btn.className = 'campo-sel-btn' + (campoParametrista === c ? ' active' : '');
-    btn.textContent = c;
-    btn.onclick = () => {
-      campoParametrista = c;
-      document.querySelectorAll('.campo-sel-btn').forEach(b => b.classList.remove('active'));
+function renderCamposSel(){
+  const grid=document.getElementById('campo-sel-grid');
+  grid.innerHTML='';
+  CAMPOS.forEach(c=>{
+    const btn=document.createElement('button');
+    btn.className='campo-sel-btn'+(campoParametrista===c?' active':'');
+    btn.textContent=c;
+    btn.onclick=()=>{
+      campoParametrista=c;
+      document.querySelectorAll('.campo-sel-btn').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active');
-      document.getElementById('btn-ir-ingreso').disabled = false;
+      document.getElementById('btn-ir-ingreso').disabled=false;
     };
     grid.appendChild(btn);
   });
 }
 
-async function irAIngreso() {
-  if (!campoParametrista) return;
+async function irAIngreso(){
+  if(!campoParametrista)return;
   irA('v-ingreso');
-  document.getElementById('ingreso-titulo').textContent = '📋 ' + campoParametrista;
-  const fecha = new Date();
-  const dd = String(fecha.getDate()).padStart(2,'0');
-  const mm = String(fecha.getMonth()+1).padStart(2,'0');
-  const yyyy = fecha.getFullYear();
-  document.getElementById('ingreso-fecha').textContent = 'Fecha: ' + dd + '/' + mm + '/' + yyyy;
-
-  // Render turno tabs
-  const esMulti = CAMPOS_MULTI.has(campoParametrista);
-  const turnos = esMulti ? TURNOS_MULTI : TURNOS_NORMAL;
-  const tabsEl = document.getElementById('turno-tabs');
-  tabsEl.innerHTML = '';
-  turnos.forEach(t => {
-    const btn = document.createElement('button');
-    btn.className = 'tab-btn' + (t.id === ingresoTurnoActual ? ' active' : '');
-    btn.textContent = t.label;
-    btn.onclick = () => {
-      ingresoTurnoActual = t.id;
-      document.querySelectorAll('#turno-tabs .tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('ingreso-titulo').textContent='📋 '+campoParametrista;
+  const fecha=new Date();
+  const dd=String(fecha.getDate()).padStart(2,'0');
+  const mm=String(fecha.getMonth()+1).padStart(2,'0');
+  const yyyy=fecha.getFullYear();
+  document.getElementById('ingreso-fecha').textContent='Fecha: '+dd+'/'+mm+'/'+yyyy;
+  document.getElementById('btn-descargar-ingreso').style.display='none';
+  const esMulti=CAMPOS_MULTI.has(campoParametrista);
+  const turnos=esMulti?TURNOS_MULTI:TURNOS_NORMAL;
+  const tabsEl=document.getElementById('turno-tabs');
+  tabsEl.innerHTML='';
+  turnos.forEach(t=>{
+    const btn=document.createElement('button');
+    btn.className='tab-btn'+(t.id===ingresoTurnoActual?' active':'');
+    btn.textContent=t.label;
+    btn.onclick=()=>{
+      ingresoTurnoActual=t.id;
+      document.querySelectorAll('#turno-tabs .tab-btn').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active');
       renderTablaIngreso();
     };
     tabsEl.appendChild(btn);
   });
-  ingresoTurnoActual = turnos[0].id;
-  tabsEl.firstChild && tabsEl.firstChild.classList.add('active');
-
-  // Cargar piscinas configuradas
+  ingresoTurnoActual=turnos[0].id;
+  tabsEl.firstChild&&tabsEl.firstChild.classList.add('active');
   await cargarPiscinasParaIngreso();
 }
 
-async function cargarPiscinasParaIngreso() {
-  document.getElementById('ingreso-tabla-wrap').innerHTML = '<div class="spinner" style="margin:20px auto"></div>';
-  try {
-    const r = await fetch('/api/piscinas-campo?sector=' + encodeURIComponent(campoParametrista));
-    const d = await r.json();
-    if (d.ok && d.piscinas && d.piscinas.length) {
-      ingresoPiscinasConfig = d.piscinas;
-    } else {
-      ingresoPiscinasConfig = [];
-    }
+async function cargarPiscinasParaIngreso(){
+  document.getElementById('ingreso-tabla-wrap').innerHTML='<div class="spinner" style="margin:20px auto"></div>';
+  try{
+    const r=await fetch('/api/piscinas-campo?sector='+encodeURIComponent(campoParametrista));
+    const d=await r.json();
+    ingresoPiscinasConfig=d.ok&&d.piscinas?d.piscinas:[];
     renderTablaIngreso();
-  } catch(e) {
-    document.getElementById('ingreso-tabla-wrap').innerHTML = '<p style="color:#ef4444;text-align:center;padding:20px">Error cargando piscinas: ' + e.message + '</p>';
+  }catch(e){
+    document.getElementById('ingreso-tabla-wrap').innerHTML='<p style="color:#ef4444;text-align:center;padding:20px">Error: '+e.message+'</p>';
   }
 }
 
-function getTurnoKeys() {
-  const esMulti = CAMPOS_MULTI.has(campoParametrista);
-  const turnos = esMulti ? TURNOS_MULTI : TURNOS_NORMAL;
-  const t = turnos.find(x => x.id === ingresoTurnoActual);
-  return t ? t.keys : ['oxigeno_am','temp_am'];
+function getTurnoKeys(){
+  const esMulti=CAMPOS_MULTI.has(campoParametrista);
+  const turnos=esMulti?TURNOS_MULTI:TURNOS_NORMAL;
+  const t=turnos.find(x=>x.id===ingresoTurnoActual);
+  return t?t.keys:['oxigeno_am','temp_am'];
 }
 
-function renderTablaIngreso() {
-  if (!ingresoPiscinasConfig.length) {
-    document.getElementById('ingreso-tabla-wrap').innerHTML = `
-      <div style="text-align:center;padding:24px;background:#f9fafb;border-radius:12px;border:1.5px dashed #e5e7eb">
-        <div style="font-size:32px;margin-bottom:8px">⚙️</div>
-        <p style="font-size:14px;font-weight:700;color:#374151;margin-bottom:6px">Sin piscinas configuradas</p>
-        <p style="font-size:13px;color:#6b7280;margin-bottom:14px">Primero configura las piscinas de este campo</p>
-        <button class="btn-sm btn-sm-green" onclick="irAConfigPiscinas()">Configurar ahora</button>
-      </div>`;
+function renderTablaIngreso(){
+  if(!ingresoPiscinasConfig.length){
+    document.getElementById('ingreso-tabla-wrap').innerHTML='<div style="text-align:center;padding:24px;background:#f9fafb;border-radius:12px;border:1.5px dashed #e5e7eb"><div style="font-size:32px;margin-bottom:8px">⚙️</div><p style="font-size:14px;font-weight:700;color:#374151;margin-bottom:6px">Sin piscinas configuradas</p><p style="font-size:13px;color:#6b7280;margin-bottom:14px">Primero configura las piscinas de este campo</p><button class="btn-sm btn-sm-green" onclick="irAConfigPiscinas()">Configurar ahora</button></div>';
     return;
   }
-
-  const keys = getTurnoKeys();
-  const o2key = keys[0], tmpkey = keys[1];
-
-  const piscinas   = ingresoPiscinasConfig.filter(p => p.tipo === 'piscina');
-  const precrias   = ingresoPiscinasConfig.filter(p => p.tipo === 'precria');
-  const reservorios = ingresoPiscinasConfig.filter(p => p.tipo === 'reservorio');
-
-  function filaPS(p) {
-    const k = p.ps + '_' + p.tipo;
-    const val = ingresoData[k] || {};
-    const o2val = val[o2key] !== undefined ? val[o2key] : '';
-    const tmpval = val[tmpkey] !== undefined ? val[tmpkey] : '';
-    const o2num = parseFloat(o2val);
-    let o2cls = 'inp-o2';
-    if (!isNaN(o2num)) {
-      if (o2num < 2.9) o2cls += ' critico';
-      else if (o2num < 3.5) o2cls += ' vigilancia';
-    }
-    const trCls = p.tipo === 'precria' ? 'precria-row' : p.tipo === 'reservorio' ? 'reservorio-row' : '';
-    return '<tr class="' + trCls + '">' +
-      '<td style="font-weight:700;color:#0F6E56;font-size:14px;padding:6px 4px">' + p.ps + '</td>' +
-      '<td><input class="' + o2cls + '" type="number" step="0.1" min="0" max="20" placeholder="—" value="' + o2val + '" ' +
-        'onchange="setIngresoVal(\'' + k + '\',\'' + o2key + '\',this.value);colorearO2(this)" ' +
-        'oninput="colorearO2(this)" id="inp_' + k + '_o2"></td>' +
-      '<td><input class="inp-temp" type="number" step="0.1" min="15" max="40" placeholder="—" value="' + tmpval + '" ' +
-        'onchange="setIngresoVal(\'' + k + '\',\'' + tmpkey + '\',this.value)" id="inp_' + k + '_tmp"></td>' +
-      '</tr>';
+  const keys=getTurnoKeys();
+  const o2key=keys[0],tmpkey=keys[1];
+  const piscinas=ingresoPiscinasConfig.filter(p=>p.tipo==='piscina');
+  const precrias=ingresoPiscinasConfig.filter(p=>p.tipo==='precria');
+  const reservorios=ingresoPiscinasConfig.filter(p=>p.tipo==='reservorio');
+  function filaPS(p){
+    const k=p.ps+'_'+p.tipo;
+    const val=ingresoData[k]||{};
+    const o2val=val[o2key]!==undefined?val[o2key]:'';
+    const tmpval=val[tmpkey]!==undefined?val[tmpkey]:'';
+    const o2num=parseFloat(o2val);
+    let o2cls='inp-o2';
+    if(!isNaN(o2num)){if(o2num<2.9)o2cls+=' critico';else if(o2num<3.5)o2cls+=' vigilancia';}
+    const trCls=p.tipo==='precria'?'precria-row':p.tipo==='reservorio'?'reservorio-row':'';
+    return '<tr class="'+trCls+'"><td style="font-weight:700;color:#0F6E56;font-size:14px;padding:6px 4px">'+p.ps+'</td>'+
+      '<td><input class="'+o2cls+'" type="number" step="0.1" min="0" max="20" placeholder="—" value="'+o2val+'" onchange="setIngresoVal(\''+k+'\',\''+o2key+'\',this.value);colorearO2(this)" oninput="colorearO2(this)" id="inp_'+k+'_o2"></td>'+
+      '<td><input class="inp-temp" type="number" step="0.1" min="15" max="40" placeholder="—" value="'+tmpval+'" onchange="setIngresoVal(\''+k+'\',\''+tmpkey+'\',this.value)" id="inp_'+k+'_tmp"></td></tr>';
   }
-
-  let html = '<div style="overflow-x:auto"><table class="ingreso-tabla">';
-  html += '<thead><tr><th>PS</th><th>O₂ mg/L</th><th>T° °C</th></tr></thead><tbody>';
-
-  if (piscinas.length) {
-    html += '<tr class="seccion-header-row"><td colspan="3">🐟 PISCINAS (' + piscinas.length + ')</td></tr>';
-    piscinas.forEach(p => { html += filaPS(p); });
-  }
-  if (precrias.length) {
-    html += '<tr class="seccion-header-row precria"><td colspan="3">🌱 PRECRIAS (' + precrias.length + ')</td></tr>';
-    precrias.forEach(p => { html += filaPS(p); });
-  }
-  if (reservorios.length) {
-    html += '<tr class="seccion-header-row reservorio"><td colspan="3">💧 RESERVORIO (' + reservorios.length + ')</td></tr>';
-    reservorios.forEach(p => { html += filaPS(p); });
-  }
-
-  html += '</tbody></table></div>';
-  document.getElementById('ingreso-tabla-wrap').innerHTML = html;
+  let html='<div style="overflow-x:auto"><table class="ingreso-tabla"><thead><tr><th>PS</th><th>O₂ mg/L</th><th>T° °C</th></tr></thead><tbody>';
+  if(piscinas.length){html+='<tr class="seccion-header-row"><td colspan="3">🐟 PISCINAS ('+piscinas.length+')</td></tr>';piscinas.forEach(p=>{html+=filaPS(p);});}
+  if(precrias.length){html+='<tr class="seccion-header-row precria"><td colspan="3">🌱 PRECRIAS ('+precrias.length+')</td></tr>';precrias.forEach(p=>{html+=filaPS(p);});}
+  if(reservorios.length){html+='<tr class="seccion-header-row reservorio"><td colspan="3">💧 RESERVORIO ('+reservorios.length+')</td></tr>';reservorios.forEach(p=>{html+=filaPS(p);});}
+  html+='</tbody></table></div>';
+  document.getElementById('ingreso-tabla-wrap').innerHTML=html;
 }
 
-function colorearO2(inp) {
-  const v = parseFloat(inp.value);
-  inp.className = 'inp-o2';
-  if (!isNaN(v)) {
-    if (v < 2.9) inp.classList.add('critico');
-    else if (v < 3.5) inp.classList.add('vigilancia');
-  }
+function colorearO2(inp){
+  const v=parseFloat(inp.value);
+  inp.className='inp-o2';
+  if(!isNaN(v)){if(v<2.9)inp.classList.add('critico');else if(v<3.5)inp.classList.add('vigilancia');}
 }
 
-function setIngresoVal(k, field, val) {
-  if (!ingresoData[k]) ingresoData[k] = {};
-  const num = val === '' ? null : parseFloat(val);
-  ingresoData[k][field] = isNaN(num) ? null : num;
+function setIngresoVal(k,field,val){
+  if(!ingresoData[k])ingresoData[k]={};
+  const num=val===''?null:parseFloat(val);
+  ingresoData[k][field]=isNaN(num)?null:num;
 }
 
-async function guardarIngreso() {
-  if (!campoParametrista || !ingresoPiscinasConfig.length) return;
-  document.getElementById('btn-guardar-ingreso').disabled = true;
-  mostrarEstado('ingreso-estado', 'loading', 'Guardando parámetros...');
-
-  // Leer todos los inputs actuales antes de enviar
-  ingresoPiscinasConfig.forEach(p => {
-    const k = p.ps + '_' + p.tipo;
-    const keys = getTurnoKeys();
-    const o2inp = document.getElementById('inp_' + k + '_o2');
-    const tmpinp = document.getElementById('inp_' + k + '_tmp');
-    if (o2inp) setIngresoVal(k, keys[0], o2inp.value);
-    if (tmpinp) setIngresoVal(k, keys[1], tmpinp.value);
+async function guardarIngreso(){
+  if(!campoParametrista||!ingresoPiscinasConfig.length)return;
+  document.getElementById('btn-guardar-ingreso').disabled=true;
+  document.getElementById('btn-descargar-ingreso').style.display='none';
+  mostrarEstado('ingreso-estado','loading','Guardando parámetros...');
+  ingresoPiscinasConfig.forEach(p=>{
+    const k=p.ps+'_'+p.tipo;
+    const keys=getTurnoKeys();
+    const o2inp=document.getElementById('inp_'+k+'_o2');
+    const tmpinp=document.getElementById('inp_'+k+'_tmp');
+    if(o2inp)setIngresoVal(k,keys[0],o2inp.value);
+    if(tmpinp)setIngresoVal(k,keys[1],tmpinp.value);
   });
+  const piscinas=ingresoPiscinasConfig.map(p=>{
+    const k=p.ps+'_'+p.tipo;
+    const d=ingresoData[k]||{};
+    return {ps:p.ps,tipo:p.tipo,oxigeno_am:d.oxigeno_am!==undefined?d.oxigeno_am:null,oxigeno_pm:d.oxigeno_pm!==undefined?d.oxigeno_pm:null,temp_am:d.temp_am!==undefined?d.temp_am:null,temp_pm:d.temp_pm!==undefined?d.temp_pm:null,oxigeno_00:d.oxigeno_00!==undefined?d.oxigeno_00:null,temp_00:d.temp_00!==undefined?d.temp_00:null,oxigeno_02:d.oxigeno_02!==undefined?d.oxigeno_02:null,temp_02:d.temp_02!==undefined?d.temp_02:null};
+  }).filter(p=>Object.values(p).some(v=>typeof v==='number'&&v!==null));
+  if(!piscinas.length){mostrarEstado('ingreso-estado','err','No hay valores ingresados');document.getElementById('btn-guardar-ingreso').disabled=false;return;}
+  try{
+    const r=await fetch('/api/ingresar-manual',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({campo:campoParametrista,piscinas})});
+    const d=await r.json();
+    if(!r.ok||d.error)throw new Error(d.error||'Error');
+    const ps=piscinas.filter(p=>p.tipo==='piscina');
+    const pr=piscinas.filter(p=>p.tipo==='precria');
+    const res=piscinas.filter(p=>p.tipo==='reservorio');
+    const crit=piscinas.filter(p=>estO2(p.oxigeno_am)==='c'||estO2(p.oxigeno_pm)==='c'||estO2(p.oxigeno_00)==='c'||estO2(p.oxigeno_02)==='c').length;
+    const vig=piscinas.filter(p=>{const vals=[p.oxigeno_am,p.oxigeno_pm,p.oxigeno_00,p.oxigeno_02];return vals.some(v=>estO2(v)==='v')&&!vals.some(v=>estO2(v)==='c');}).length;
+    const norm=piscinas.length-crit-vig;
+    // Guardar para descarga
+    ultimoResumenGuardado={sector:campoParametrista,fecha:d.fecha,piscinas,alertas_enviadas:d.alertas_enviadas};
+    mostrarEstado('ingreso-estado','ok','✅ Guardado — '+d.fecha+'\n'+ps.length+' piscinas'+(pr.length?' | '+pr.length+' precrias':'')+(res.length?' | '+res.length+' reservorio':'')+'\n'+d.alertas_enviadas+' biólogos notificados');
+    document.getElementById('btn-descargar-ingreso').style.display='flex';
+  }catch(e){mostrarEstado('ingreso-estado','err','❌ '+e.message);}
+  document.getElementById('btn-guardar-ingreso').disabled=false;
+}
 
-  // Construir array de piscinas para enviar
-  const piscinas = ingresoPiscinasConfig.map(p => {
-    const k = p.ps + '_' + p.tipo;
-    const d = ingresoData[k] || {};
-    return {
-      ps: p.ps,
-      tipo: p.tipo,
-      oxigeno_am:  d.oxigeno_am  !== undefined ? d.oxigeno_am  : null,
-      oxigeno_pm:  d.oxigeno_pm  !== undefined ? d.oxigeno_pm  : null,
-      temp_am:     d.temp_am     !== undefined ? d.temp_am     : null,
-      temp_pm:     d.temp_pm     !== undefined ? d.temp_pm     : null,
-      oxigeno_00:  d.oxigeno_00  !== undefined ? d.oxigeno_00  : null,
-      temp_00:     d.temp_00     !== undefined ? d.temp_00     : null,
-      oxigeno_02:  d.oxigeno_02  !== undefined ? d.oxigeno_02  : null,
-      temp_02:     d.temp_02     !== undefined ? d.temp_02     : null,
-    };
-  }).filter(p => {
-    // Solo incluir piscinas con al menos un valor ingresado
-    return Object.values(p).some(v => typeof v === 'number' && v !== null);
-  });
+function descargarResumenIngreso(){
+  if(!ultimoResumenGuardado)return;
+  const d=ultimoResumenGuardado;
+  const piscinas=d.piscinas||[];
+  const sector=d.sector||'';
+  const fecha=d.fecha||'';
 
-  if (!piscinas.length) {
-    mostrarEstado('ingreso-estado', 'err', 'No hay valores ingresados');
-    document.getElementById('btn-guardar-ingreso').disabled = false;
-    return;
+  const ps=piscinas.filter(p=>(p.tipo||'piscina')==='piscina');
+  const pr=piscinas.filter(p=>p.tipo==='precria');
+  const res=piscinas.filter(p=>p.tipo==='reservorio');
+
+  const canvas=document.createElement('canvas');
+  const W=720;
+  const ROWH=30;
+  const PADX=20;
+  const HEADERH=80;
+  const SECH=34;
+  const PROMH=68;
+  let totalRows=ps.length+pr.length+res.length;
+  let sections=(ps.length?1:0)+(pr.length?1:0)+(res.length?1:0);
+  const height=HEADERH+(sections*SECH)+(totalRows*ROWH)+PROMH+40;
+  canvas.width=W;canvas.height=height;
+  const ctx=canvas.getContext('2d');
+
+  ctx.fillStyle='#f0f4f2';ctx.fillRect(0,0,W,height);
+  ctx.fillStyle='#0F6E56';ctx.fillRect(0,0,W,HEADERH);
+  ctx.fillStyle='white';
+  ctx.font='bold 20px Arial';ctx.fillText('Camaronera Alertas — '+sector,PADX,32);
+  ctx.font='14px Arial';ctx.fillText('Fecha: '+fecha+'   Piscinas: '+ps.length+(pr.length?'   Precrias: '+pr.length:'')+(res.length?'   Reservorio: '+res.length:''),PADX,56);
+
+  let y=HEADERH+10;
+
+  function o2Color(v){
+    if(v==null)return '#9ca3af';
+    if(v<2.9)return '#dc2626';
+    if(v<3.5)return '#d97706';
+    return '#065f46';
   }
 
-  try {
-    const r = await fetch('/api/ingresar-manual', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({campo: campoParametrista, piscinas})
+  function drawSeccion(lista,titulo,color){
+    if(!lista.length)return;
+    ctx.fillStyle=color;ctx.fillRect(PADX,y,W-PADX*2,SECH-4);
+    ctx.fillStyle='white';ctx.font='bold 13px Arial';ctx.fillText(titulo,PADX+10,y+20);
+    y+=SECH;
+    ctx.fillStyle='#f9fafb';ctx.fillRect(PADX,y,W-PADX*2,ROWH);
+    ctx.fillStyle='#6b7280';ctx.font='bold 11px Arial';
+    [{l:'PS',x:30},{l:'O2 AM',x:100},{l:'O2 PM',x:190},{l:'T AM',x:280},{l:'T PM',x:370},{l:'Estado',x:460}].forEach(c=>ctx.fillText(c.l,PADX+c.x,y+19));
+    y+=ROWH;
+    lista.forEach((p,i)=>{
+      ctx.fillStyle=i%2===0?'white':'#f9fafb';ctx.fillRect(PADX,y,W-PADX*2,ROWH);
+      const eAM=estO2(p.oxigeno_am),ePM=estO2(p.oxigeno_pm);
+      const worst=eAM==='c'||ePM==='c'?'c':eAM==='v'||ePM==='v'?'v':'n';
+      const estadoColor={c:'#dc2626',v:'#d97706',n:'#16a34a'}[worst];
+      const estadoTxt={c:'Critico',v:'Vigilancia',n:'Normal'}[worst];
+      ctx.fillStyle='#111';ctx.font='bold 12px Arial';ctx.fillText(p.ps,PADX+30,y+20);
+      ctx.font='12px Arial';
+      ctx.fillStyle=o2Color(p.oxigeno_am);ctx.fillText(p.oxigeno_am!=null?p.oxigeno_am:'—',PADX+100,y+20);
+      ctx.fillStyle=o2Color(p.oxigeno_pm);ctx.fillText(p.oxigeno_pm!=null?p.oxigeno_pm:'—',PADX+190,y+20);
+      ctx.fillStyle='#374151';ctx.fillText(p.temp_am!=null?p.temp_am:'—',PADX+280,y+20);
+      ctx.fillStyle='#374151';ctx.fillText(p.temp_pm!=null?p.temp_pm:'—',PADX+370,y+20);
+      ctx.fillStyle=estadoColor;ctx.fillRect(PADX+450,y+5,90,20);
+      ctx.fillStyle='white';ctx.font='bold 10px Arial';ctx.fillText(estadoTxt,PADX+460,y+18);
+      y+=ROWH;
     });
-    const d = await r.json();
-    if (!r.ok || d.error) throw new Error(d.error || 'Error');
-
-    const ps   = piscinas.filter(p => p.tipo === 'piscina');
-    const pr   = piscinas.filter(p => p.tipo === 'precria');
-    const res  = piscinas.filter(p => p.tipo === 'reservorio');
-    const crit = piscinas.filter(p => estO2(p.oxigeno_am) === 'c' || estO2(p.oxigeno_pm) === 'c' || estO2(p.oxigeno_00) === 'c' || estO2(p.oxigeno_02) === 'c').length;
-    const vig  = piscinas.filter(p => {
-      const vals = [p.oxigeno_am, p.oxigeno_pm, p.oxigeno_00, p.oxigeno_02];
-      return vals.some(v => estO2(v) === 'v') && !vals.some(v => estO2(v) === 'c');
-    }).length;
-    const norm = piscinas.length - crit - vig;
-
-    mostrarEstado('ingreso-estado', 'ok',
-      '✅ Guardado — ' + d.fecha + '\n' +
-      ps.length + ' piscinas' + (pr.length ? ' | ' + pr.length + ' precrias' : '') +
-      (res.length ? ' | ' + res.length + ' reservorio' : '') + '\n' +
-      d.alertas_enviadas + ' biólogos notificados'
-    );
-  } catch(e) {
-    mostrarEstado('ingreso-estado', 'err', '❌ ' + e.message);
   }
-  document.getElementById('btn-guardar-ingreso').disabled = false;
+
+  drawSeccion(ps,'PISCINAS','#0F6E56');
+
+  if(ps.length){
+    const o2amV=ps.filter(p=>p.oxigeno_am!=null).map(p=>p.oxigeno_am);
+    const o2pmV=ps.filter(p=>p.oxigeno_pm!=null).map(p=>p.oxigeno_pm);
+    const tamV=ps.filter(p=>p.temp_am!=null).map(p=>p.temp_am);
+    const tpmV=ps.filter(p=>p.temp_pm!=null).map(p=>p.temp_pm);
+    const pAM=o2amV.length?(o2amV.reduce((a,b)=>a+b,0)/o2amV.length).toFixed(2):'—';
+    const pPM=o2pmV.length?(o2pmV.reduce((a,b)=>a+b,0)/o2pmV.length).toFixed(2):'—';
+    const pTAM=tamV.length?(tamV.reduce((a,b)=>a+b,0)/tamV.length).toFixed(1):'—';
+    const pTPM=tpmV.length?(tpmV.reduce((a,b)=>a+b,0)/tpmV.length).toFixed(1):'—';
+    ctx.fillStyle='#f0fdf4';ctx.fillRect(PADX,y,W-PADX*2,PROMH-10);
+    ctx.strokeStyle='#86efac';ctx.lineWidth=1;ctx.strokeRect(PADX,y,W-PADX*2,PROMH-10);
+    ctx.fillStyle='#374151';ctx.font='bold 11px Arial';ctx.fillText('PROMEDIOS PISCINAS',PADX+10,y+16);
+    [{val:pAM,lbl:'O2 AM mg/L',x:50,color:'#1D9E75'},{val:pPM,lbl:'O2 PM mg/L',x:210,color:'#0F6E56'},{val:pTAM,lbl:'T AM C',x:370,color:'#f59e0b'},{val:pTPM,lbl:'T PM C',x:510,color:'#ef4444'}].forEach(pc=>{
+      ctx.fillStyle=pc.color;ctx.font='bold 17px Arial';ctx.fillText(pc.val,PADX+pc.x,y+40);
+      ctx.fillStyle='#6b7280';ctx.font='10px Arial';ctx.fillText(pc.lbl,PADX+pc.x,y+54);
+    });
+    y+=PROMH;
+  }
+
+  drawSeccion(pr,'PRECRIAS','#6366f1');
+  drawSeccion(res,'RESERVORIO','#0891b2');
+
+  ctx.fillStyle='#6b7280';ctx.font='10px Arial';ctx.fillText('Sistema de Alertas Camaronera Recorcholis S.A.',PADX,y+18);
+
+  canvas.toBlob(function(blob){
+    const url=URL.createObjectURL(blob);
+    const link=document.createElement('a');
+    link.download='resumen_'+sector.replace(/ /g,'_')+'_'+fecha.replace(/\//g,'-')+'.jpg';
+    link.href=url;
+    document.body.appendChild(link);link.click();document.body.removeChild(link);
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+  },'image/jpeg',0.95);
 }
 
-// ── CONFIG PISCINAS ────────────────────────────────────────
-async function irAConfigPiscinas() {
-  document.getElementById('config-titulo').textContent = '⚙️ ' + campoParametrista + ' — Piscinas';
+async function irAConfigPiscinas(){
+  document.getElementById('config-titulo').textContent='⚙️ '+campoParametrista+' — Piscinas';
   irA('v-config-piscinas');
-  // Cargar config actual
-  try {
-    const r = await fetch('/api/piscinas-campo?sector=' + encodeURIComponent(campoParametrista));
-    const d = await r.json();
-    configPiscinasTemp = d.ok && d.piscinas ? [...d.piscinas] : [];
-  } catch(e) {
-    configPiscinasTemp = [];
-  }
+  try{
+    const r=await fetch('/api/piscinas-campo?sector='+encodeURIComponent(campoParametrista));
+    const d=await r.json();
+    configPiscinasTemp=d.ok&&d.piscinas?[...d.piscinas]:[];
+  }catch(e){configPiscinasTemp=[];}
   renderConfigLista();
 }
 
-function renderConfigLista() {
-  const wrap = document.getElementById('config-lista');
-  if (!configPiscinasTemp.length) {
-    wrap.innerHTML = '<p style="text-align:center;color:#9ca3af;font-size:13px;padding:16px">Sin piscinas configuradas aún</p>';
-    return;
-  }
-  const piscinas   = configPiscinasTemp.filter(p => p.tipo === 'piscina');
-  const precrias   = configPiscinasTemp.filter(p => p.tipo === 'precria');
-  const reservorios = configPiscinasTemp.filter(p => p.tipo === 'reservorio');
-
-  function seccion(lista, titulo, color) {
-    if (!lista.length) return '';
-    let h = '<div style="margin-bottom:12px"><p style="font-size:12px;font-weight:700;color:' + color + ';margin-bottom:6px">' + titulo + '</p>';
-    lista.forEach((p, idx) => {
-      const globalIdx = configPiscinasTemp.indexOf(p);
-      h += '<div class="ps-config-item">' +
-        '<span class="ps-config-num">' + p.ps + '</span>' +
-        '<select class="ps-tipo-select" onchange="cambiarTipoPiscina(' + globalIdx + ',this.value)">' +
-        '<option value="piscina"' + (p.tipo==='piscina'?' selected':'') + '>🐟 Piscina</option>' +
-        '<option value="precria"' + (p.tipo==='precria'?' selected':'') + '>🌱 Precria</option>' +
-        '<option value="reservorio"' + (p.tipo==='reservorio'?' selected':'') + '>💧 Reservorio</option>' +
-        '</select>' +
-        '<button class="ps-delete-btn" onclick="eliminarPiscinaConfig(' + globalIdx + ')">🗑</button>' +
-        '</div>';
+function renderConfigLista(){
+  const wrap=document.getElementById('config-lista');
+  if(!configPiscinasTemp.length){wrap.innerHTML='<p style="text-align:center;color:#9ca3af;font-size:13px;padding:16px">Sin piscinas configuradas aún</p>';return;}
+  const piscinas=configPiscinasTemp.filter(p=>p.tipo==='piscina');
+  const precrias=configPiscinasTemp.filter(p=>p.tipo==='precria');
+  const reservorios=configPiscinasTemp.filter(p=>p.tipo==='reservorio');
+  function seccion(lista,titulo,color){
+    if(!lista.length)return'';
+    let h='<div style="margin-bottom:12px"><p style="font-size:12px;font-weight:700;color:'+color+';margin-bottom:6px">'+titulo+'</p>';
+    lista.forEach(p=>{
+      const globalIdx=configPiscinasTemp.indexOf(p);
+      h+='<div class="ps-config-item"><span class="ps-config-num">'+p.ps+'</span>'+
+        '<select class="ps-tipo-select" onchange="cambiarTipoPiscina('+globalIdx+',this.value)">'+
+        '<option value="piscina"'+(p.tipo==='piscina'?' selected':'')+'>🐟 Piscina</option>'+
+        '<option value="precria"'+(p.tipo==='precria'?' selected':'')+'>🌱 Precria</option>'+
+        '<option value="reservorio"'+(p.tipo==='reservorio'?' selected':'')+'>💧 Reservorio</option>'+
+        '</select><button class="ps-delete-btn" onclick="eliminarPiscinaConfig('+globalIdx+')">🗑</button></div>';
     });
-    h += '</div>';
-    return h;
+    return h+'</div>';
   }
-
-  wrap.innerHTML =
-    seccion(piscinas, '🐟 PISCINAS', '#0F6E56') +
-    seccion(precrias, '🌱 PRECRIAS', '#6366f1') +
-    seccion(reservorios, '💧 RESERVORIO', '#0891b2');
+  wrap.innerHTML=seccion(piscinas,'🐟 PISCINAS','#0F6E56')+seccion(precrias,'🌱 PRECRIAS','#6366f1')+seccion(reservorios,'💧 RESERVORIO','#0891b2');
 }
 
-function agregarPiscinaConfig() {
-  const ps = document.getElementById('nueva-ps').value.trim();
-  const tipo = document.getElementById('nueva-tipo').value;
-  if (!ps) return;
-  // Check duplicate
-  if (configPiscinasTemp.some(p => p.ps === ps && p.tipo === tipo)) {
-    alert('Esta piscina ya existe');
-    return;
-  }
-  configPiscinasTemp.push({ps, tipo});
-  document.getElementById('nueva-ps').value = '';
+function agregarPiscinaConfig(){
+  const ps=document.getElementById('nueva-ps').value.trim();
+  const tipo=document.getElementById('nueva-tipo').value;
+  if(!ps)return;
+  if(configPiscinasTemp.some(p=>p.ps===ps&&p.tipo===tipo)){alert('Esta piscina ya existe');return;}
+  configPiscinasTemp.push({ps,tipo});
+  document.getElementById('nueva-ps').value='';
   renderConfigLista();
 }
 
-function eliminarPiscinaConfig(idx) {
-  configPiscinasTemp.splice(idx, 1);
-  renderConfigLista();
+function eliminarPiscinaConfig(idx){configPiscinasTemp.splice(idx,1);renderConfigLista();}
+function cambiarTipoPiscina(idx,tipo){configPiscinasTemp[idx].tipo=tipo;renderConfigLista();}
+
+async function guardarConfigPiscinas(){
+  if(!configPiscinasTemp.length){mostrarEstado('config-estado','err','Agrega al menos una piscina');return;}
+  mostrarEstado('config-estado','loading','Guardando...');
+  try{
+    const r=await fetch('/api/piscinas-campo',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({campo:campoParametrista,piscinas:configPiscinasTemp})});
+    const d=await r.json();
+    if(d.ok){ingresoPiscinasConfig=[...configPiscinasTemp];mostrarEstado('config-estado','ok','✅ Configuración guardada — '+configPiscinasTemp.length+' piscinas');setTimeout(()=>irA('v-ingreso'),1200);}
+    else mostrarEstado('config-estado','err',d.error||'Error');
+  }catch(e){mostrarEstado('config-estado','err','Error: '+e.message);}
 }
 
-function cambiarTipoPiscina(idx, tipo) {
-  configPiscinasTemp[idx].tipo = tipo;
-  renderConfigLista();
+function switchTabG(tab){
+  ['dash','hist','reg'].forEach(t=>{document.getElementById('g-panel-'+t).style.display=t===tab?'block':'none';document.getElementById('g-tab-'+t).classList.toggle('active',t===tab);});
+  if(tab==='dash')cargarDashboard();
+  if(tab==='hist'){histOrigen='g';renderSelectorCampos('hist-wrap-g');}
 }
 
-async function guardarConfigPiscinas() {
-  if (!configPiscinasTemp.length) {
-    mostrarEstado('config-estado', 'err', 'Agrega al menos una piscina');
-    return;
-  }
-  mostrarEstado('config-estado', 'loading', 'Guardando...');
-  try {
-    const r = await fetch('/api/piscinas-campo', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({campo: campoParametrista, piscinas: configPiscinasTemp})
-    });
-    const d = await r.json();
-    if (d.ok) {
-      ingresoPiscinasConfig = [...configPiscinasTemp];
-      mostrarEstado('config-estado', 'ok', '✅ Configuración guardada — ' + configPiscinasTemp.length + ' piscinas');
-      setTimeout(() => irA('v-ingreso'), 1200);
-    } else {
-      mostrarEstado('config-estado', 'err', d.error || 'Error');
-    }
-  } catch(e) {
-    mostrarEstado('config-estado', 'err', 'Error: ' + e.message);
-  }
+async function cargarDashboard(){
+  const wrap=document.getElementById('g-dashboard-wrap');
+  wrap.innerHTML='<div class="spinner" style="margin:30px auto"></div>';
+  try{const r=await fetch('/api/dashboard-gerencia');const d=await r.json();if(!d.ok)throw new Error(d.error);renderDashboard(d.resumen,d.fecha);}
+  catch(e){wrap.innerHTML='<p style="color:#ef4444;text-align:center;padding:20px">'+e.message+'</p>';}
 }
 
-// ── GERENCIA / HISTÓRICO ───────────────────────────────────
-function switchTabG(tab) {
-  ['dash','hist','reg'].forEach(t => {
-    document.getElementById('g-panel-'+t).style.display = t===tab?'block':'none';
-    document.getElementById('g-tab-'+t).classList.toggle('active', t===tab);
-  });
-  if (tab==='dash') cargarDashboard();
-  if (tab==='hist') { histOrigen='g'; renderSelectorCampos('hist-wrap-g'); }
-}
-
-async function cargarDashboard() {
-  const wrap = document.getElementById('g-dashboard-wrap');
-  wrap.innerHTML = '<div class="spinner" style="margin:30px auto"></div>';
-  try {
-    const r = await fetch('/api/dashboard-gerencia');
-    const d = await r.json();
-    if (!d.ok) throw new Error(d.error);
-    renderDashboard(d.resumen, d.fecha);
-  } catch(e) {
-    wrap.innerHTML = '<p style="color:#ef4444;text-align:center;padding:20px">' + e.message + '</p>';
-  }
-}
-
-function renderDashboard(resumen, fecha) {
-  const wrap = document.getElementById('g-dashboard-wrap');
-  let totalCriticos=0, totalVigilancia=0, totalNormal=0;
-  resumen.forEach(c => { totalCriticos+=c.criticos; totalVigilancia+=c.alertas-c.criticos; totalNormal+=c.total-c.alertas; });
-
-  const campoBg = {
-    'Rolesa 1':{bg:'#fff0f0',border:'#e57373',titulo:'#c62828'},
-    'Rolesa 2':{bg:'#fff0f0',border:'#e57373',titulo:'#c62828'},
-    'Caesa 1':{bg:'#fffde7',border:'#ffd54f',titulo:'#f57f17'},
-    'Caesa 2':{bg:'#fffde7',border:'#ffd54f',titulo:'#f57f17'},
-    'Pantrusko 1':{bg:'#e0f7fa',border:'#4dd0e1',titulo:'#00838f'},
-    'Pantrusko 2':{bg:'#e0f7fa',border:'#4dd0e1',titulo:'#00838f'},
-    'Fimasa 1':{bg:'#e8eaf6',border:'#5c6bc0',titulo:'#283593'},
-    'Fimasa 2':{bg:'#e8eaf6',border:'#5c6bc0',titulo:'#283593'},
-    'Fimasa 3':{bg:'#e8eaf6',border:'#5c6bc0',titulo:'#283593'},
-    'Recorcholis 1':{bg:'#e8f5e9',border:'#66bb6a',titulo:'#1b5e20'},
-    'Recorcholis 2':{bg:'#e8f5e9',border:'#66bb6a',titulo:'#1b5e20'},
-  };
-
-  let html = '<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">' +
-    '<div style="flex:1;background:#fef2f2;border-radius:12px;padding:12px;text-align:center;min-width:80px"><div style="font-size:22px;font-weight:700;color:#ef4444">' + totalCriticos + '</div><div style="font-size:11px;color:#6b7280">🔴 Crítico</div></div>' +
-    '<div style="flex:1;background:#fffbeb;border-radius:12px;padding:12px;text-align:center;min-width:80px"><div style="font-size:22px;font-weight:700;color:#f59e0b">' + totalVigilancia + '</div><div style="font-size:11px;color:#6b7280">🟡 Vigilancia</div></div>' +
-    '<div style="flex:1;background:#f0fdf4;border-radius:12px;padding:12px;text-align:center;min-width:80px"><div style="font-size:22px;font-weight:700;color:#22c55e">' + totalNormal + '</div><div style="font-size:11px;color:#6b7280">🟢 Normal</div></div>' +
-    '</div><p style="font-size:12px;color:#6b7280;margin-bottom:10px">Toca un campo para ver el detalle →</p>';
-
-  resumen.forEach(c => {
-    const cls = c.criticos>0?'critico':c.alertas>0?'vigilancia':'normal';
-    const icon = c.criticos>0?'🔴':c.alertas>0?'🟡':'🟢';
-    const sinDatos = !c.ultima_fecha;
-    const cbg = campoBg[c.campo] || {bg:'#f9fafb',border:'#e5e7eb',titulo:'#111'};
-
-    html += '<div class="campo-card ' + (sinDatos?'':''+cls) + '" style="background:' + cbg.bg + ';border-color:' + cbg.border + '" onclick="verResumenCampoDesdeGerencia(\'' + c.campo + '\')">' +
-      '<div class="campo-card-header"><span class="campo-card-nombre" style="color:' + cbg.titulo + '">' + icon + ' ' + c.campo + '</span><span class="campo-card-fecha">' + (c.ultima_fecha||'Sin datos') + '</span></div>';
-
-    if (!sinDatos) {
-      html += '<div class="campo-stats">' +
-        '<span class="stat-pill rc">' + c.criticos + ' crítico</span>' +
-        '<span class="stat-pill ry">' + (c.alertas-c.criticos) + ' vigilancia</span>' +
-        '<span class="stat-pill rg">' + (c.total-c.alertas) + ' normal</span>' +
-        '</div>';
-      if (c.prom_o2_am!=null||c.prom_o2_pm!=null||c.prom_temp_am!=null) {
-        html += '<div class="prom-box">' +
-          '<div class="prom-item"><div class="prom-val">' + (c.prom_o2_am??'—') + '</div><div class="prom-lbl">O₂ AM mg/L</div></div>' +
-          '<div class="prom-item"><div class="prom-val">' + (c.prom_o2_pm??'—') + '</div><div class="prom-lbl">O₂ PM mg/L</div></div>' +
-          '<div class="prom-item"><div class="prom-val" style="color:#f59e0b">' + (c.prom_temp_am??'—') + '</div><div class="prom-lbl">T° AM °C</div></div>' +
-          '<div class="prom-item"><div class="prom-val" style="color:#ef4444">' + (c.prom_temp_pm??'—') + '</div><div class="prom-lbl">T° PM °C</div></div>' +
-          '</div>';
+function renderDashboard(resumen,fecha){
+  const wrap=document.getElementById('g-dashboard-wrap');
+  let totalCriticos=0,totalVigilancia=0,totalNormal=0;
+  resumen.forEach(c=>{totalCriticos+=c.criticos;totalVigilancia+=c.alertas-c.criticos;totalNormal+=c.total-c.alertas;});
+  const campoBg={'Rolesa 1':{bg:'#fff0f0',border:'#e57373',titulo:'#c62828'},'Rolesa 2':{bg:'#fff0f0',border:'#e57373',titulo:'#c62828'},'Caesa 1':{bg:'#fffde7',border:'#ffd54f',titulo:'#f57f17'},'Caesa 2':{bg:'#fffde7',border:'#ffd54f',titulo:'#f57f17'},'Pantrusko 1':{bg:'#e0f7fa',border:'#4dd0e1',titulo:'#00838f'},'Pantrusko 2':{bg:'#e0f7fa',border:'#4dd0e1',titulo:'#00838f'},'Fimasa 1':{bg:'#e8eaf6',border:'#5c6bc0',titulo:'#283593'},'Fimasa 2':{bg:'#e8eaf6',border:'#5c6bc0',titulo:'#283593'},'Fimasa 3':{bg:'#e8eaf6',border:'#5c6bc0',titulo:'#283593'},'Recorcholis 1':{bg:'#e8f5e9',border:'#66bb6a',titulo:'#1b5e20'},'Recorcholis 2':{bg:'#e8f5e9',border:'#66bb6a',titulo:'#1b5e20'}};
+  let html='<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap"><div style="flex:1;background:#fef2f2;border-radius:12px;padding:12px;text-align:center;min-width:80px"><div style="font-size:22px;font-weight:700;color:#ef4444">'+totalCriticos+'</div><div style="font-size:11px;color:#6b7280">🔴 Crítico</div></div><div style="flex:1;background:#fffbeb;border-radius:12px;padding:12px;text-align:center;min-width:80px"><div style="font-size:22px;font-weight:700;color:#f59e0b">'+totalVigilancia+'</div><div style="font-size:11px;color:#6b7280">🟡 Vigilancia</div></div><div style="flex:1;background:#f0fdf4;border-radius:12px;padding:12px;text-align:center;min-width:80px"><div style="font-size:22px;font-weight:700;color:#22c55e">'+totalNormal+'</div><div style="font-size:11px;color:#6b7280">🟢 Normal</div></div></div><p style="font-size:12px;color:#6b7280;margin-bottom:10px">Toca un campo para ver el detalle →</p>';
+  resumen.forEach(c=>{
+    const cls=c.criticos>0?'critico':c.alertas>0?'vigilancia':'normal';
+    const icon=c.criticos>0?'🔴':c.alertas>0?'🟡':'🟢';
+    const sinDatos=!c.ultima_fecha;
+    const cbg=campoBg[c.campo]||{bg:'#f9fafb',border:'#e5e7eb',titulo:'#111'};
+    html+='<div class="campo-card '+(sinDatos?'':''+cls)+'" style="background:'+cbg.bg+';border-color:'+cbg.border+'" onclick="verResumenCampoDesdeGerencia(\''+c.campo+'\')"><div class="campo-card-header"><span class="campo-card-nombre" style="color:'+cbg.titulo+'">'+icon+' '+c.campo+'</span><span class="campo-card-fecha">'+(c.ultima_fecha||'Sin datos')+'</span></div>';
+    if(!sinDatos){
+      html+='<div class="campo-stats"><span class="stat-pill rc">'+c.criticos+' crítico</span><span class="stat-pill ry">'+(c.alertas-c.criticos)+' vigilancia</span><span class="stat-pill rg">'+(c.total-c.alertas)+' normal</span></div>';
+      if(c.prom_o2_am!=null||c.prom_o2_pm!=null||c.prom_temp_am!=null){
+        html+='<div class="prom-box"><div class="prom-item"><div class="prom-val">'+(c.prom_o2_am??'—')+'</div><div class="prom-lbl">O₂ AM mg/L</div></div><div class="prom-item"><div class="prom-val">'+(c.prom_o2_pm??'—')+'</div><div class="prom-lbl">O₂ PM mg/L</div></div><div class="prom-item"><div class="prom-val" style="color:#f59e0b">'+(c.prom_temp_am??'—')+'</div><div class="prom-lbl">T° AM °C</div></div><div class="prom-item"><div class="prom-val" style="color:#ef4444">'+(c.prom_temp_pm??'—')+'</div><div class="prom-lbl">T° PM °C</div></div></div>';
       }
-    } else {
-      html += '<div style="font-size:12px;color:#9ca3af">Sin reportes registrados</div>';
-    }
-    html += '</div>';
+    }else{html+='<div style="font-size:12px;color:#9ca3af">Sin reportes registrados</div>';}
+    html+='</div>';
   });
-  wrap.innerHTML = html;
+  wrap.innerHTML=html;
 }
 
-function verResumenCampoDesdeGerencia(sector) { histOrigen='g'; verResumenCampo(sector); }
+function verResumenCampoDesdeGerencia(sector){histOrigen='g';verResumenCampo(sector);}
 
-function switchTab(prefix, tab) {
-  document.getElementById(prefix+'-panel-reg').style.display = tab==='reg'?'block':'none';
-  document.getElementById(prefix+'-panel-hist').style.display = tab==='hist'?'block':'none';
-  document.getElementById(prefix+'-tab-reg').classList.toggle('active', tab==='reg');
-  document.getElementById(prefix+'-tab-hist').classList.toggle('active', tab==='hist');
-  if (tab==='hist') { histOrigen=prefix; renderSelectorCampos('hist-wrap-'+prefix); }
+function switchTab(prefix,tab){
+  document.getElementById(prefix+'-panel-reg').style.display=tab==='reg'?'block':'none';
+  document.getElementById(prefix+'-panel-hist').style.display=tab==='hist'?'block':'none';
+  document.getElementById(prefix+'-tab-reg').classList.toggle('active',tab==='reg');
+  document.getElementById(prefix+'-tab-hist').classList.toggle('active',tab==='hist');
+  if(tab==='hist'){histOrigen=prefix;renderSelectorCampos('hist-wrap-'+prefix);}
 }
 
-function renderSelectorCampos(containerId) {
-  document.getElementById(containerId).innerHTML =
-    '<p style="font-size:13px;color:#6b7280;margin-bottom:12px">Selecciona el campo que quieres ver:</p>' +
-    '<div class="campo-grid">' +
-    CAMPOS.map(c => '<button class="campo-hist-btn" onclick="verResumenCampo(\'' + c + '\')">' + c + '</button>').join('') +
-    '</div>';
+function renderSelectorCampos(containerId){
+  document.getElementById(containerId).innerHTML='<p style="font-size:13px;color:#6b7280;margin-bottom:12px">Selecciona el campo que quieres ver:</p><div class="campo-grid">'+CAMPOS.map(c=>'<button class="campo-hist-btn" onclick="verResumenCampo(\''+c+'\')">'+c+'</button>').join('')+'</div>';
 }
 
-function tablaResumen(resultados, titulo, bgColor) {
-  if (!resultados.length) return '';
-  let filas = '';
-  resultados.forEach(function(item) {
-    const ps = item.ps, dato = item.dato;
-    if (!dato) {
-      filas += '<tr class="ps-row" onclick="verDetallePiscina(\'' + ps + '\')"><td class="ps-nombre">' + ps + '</td><td colspan="5" style="color:#9ca3af;font-size:12px">Sin datos</td></tr>';
-      return;
-    }
-    const eAM=estO2(dato.oxigeno_am), ePM=estO2(dato.oxigeno_pm);
+function tablaResumen(resultados,titulo,bgColor){
+  if(!resultados.length)return'';
+  let filas='';
+  resultados.forEach(function(item){
+    const ps=item.ps,dato=item.dato;
+    if(!dato){filas+='<tr class="ps-row" onclick="verDetallePiscina(\''+ps+'\')"><td class="ps-nombre">'+ps+'</td><td colspan="5" style="color:#9ca3af;font-size:12px">Sin datos</td></tr>';return;}
+    const eAM=estO2(dato.oxigeno_am),ePM=estO2(dato.oxigeno_pm);
     const worst=eAM==='c'||ePM==='c'?'c':eAM==='v'||ePM==='v'?'v':'n';
     const dotCls={c:'dot-c',v:'dot-v',n:'dot-n'}[worst];
     const lbl={c:'🔴 Crítico',v:'🟡 Vigilancia',n:'🟢 Normal'}[worst];
     const bcCls={c:'bc rc',v:'bc ry',n:'bc rg'}[worst];
-    filas += '<tr class="ps-row" onclick="verDetallePiscina(\'' + ps + '\')">' +
-      '<td><span class="alerta-dot ' + dotCls + '"></span><span class="ps-nombre">' + ps + '</span></td>' +
-      '<td>' + (dato.oxigeno_am??'—') + '</td><td>' + (dato.oxigeno_pm??'—') + '</td>' +
-      '<td>' + (dato.temp_am??'—') + '</td><td>' + (dato.temp_pm??'—') + '</td>' +
-      '<td><span class="' + bcCls + '">' + lbl + '</span></td>' +
-      '</tr>';
+    filas+='<tr class="ps-row" onclick="verDetallePiscina(\''+ps+'\')"><td><span class="alerta-dot '+dotCls+'"></span><span class="ps-nombre">'+ps+'</span></td><td>'+(dato.oxigeno_am??'—')+'</td><td>'+(dato.oxigeno_pm??'—')+'</td><td>'+(dato.temp_am??'—')+'</td><td>'+(dato.temp_pm??'—')+'</td><td><span class="'+bcCls+'">'+lbl+'</span></td></tr>';
   });
-  return '<div style="background:' + bgColor + ';color:white;padding:8px 12px;border-radius:8px 8px 0 0;font-weight:700;font-size:13px">' + titulo + '</div>' +
-    '<div style="overflow-x:auto"><table style="border:1px solid #e5e7eb;border-top:none">' +
-    '<thead><tr style="background:#f9fafb"><th>PS</th><th>O₂ AM</th><th>O₂ PM</th><th>T AM</th><th>T PM</th><th>Estado</th></tr></thead>' +
-    '<tbody>' + filas + '</tbody></table></div>';
+  return'<div style="background:'+bgColor+';color:white;padding:8px 12px;border-radius:8px 8px 0 0;font-weight:700;font-size:13px">'+titulo+'</div><div style="overflow-x:auto"><table style="border:1px solid #e5e7eb;border-top:none"><thead><tr style="background:#f9fafb"><th>PS</th><th>O₂ AM</th><th>O₂ PM</th><th>T AM</th><th>T PM</th><th>Estado</th></tr></thead><tbody>'+filas+'</tbody></table></div>';
 }
 
-async function verResumenCampo(sector) {
-  detalleSector = sector;
-  const esFimasa3 = sector === FIMASA3;
-  document.getElementById('back-resumen').onclick = function() {
-    irA(histOrigen==='g'?'v-gerencia':'v-biologo');
-    if(histOrigen==='g') switchTabG('hist'); else switchTab('b','hist');
-  };
-  document.getElementById('resumen-titulo').textContent = '📍 ' + sector;
-  document.getElementById('resumen-tabla').innerHTML = '<div class="spinner" style="margin:20px auto"></div>';
-  setCampoBg(sector);
-  irA('v-resumen');
-
-  // Fimasa 3: heatmap historico de O2 05:00 AM
-  if (esFimasa3) {
-    await cargarHeatmapFimasa3(sector);
-    return;
-  }
-
-  const rp = await fetch('/api/piscinas?sector=' + encodeURIComponent(sector));
-  const dp = await rp.json();
-  if (!dp.piscinas || !dp.piscinas.length) {
-    document.getElementById('resumen-tabla').innerHTML = '<p style="text-align:center;color:#6b7280;padding:20px">Sin datos registrados aún.<br><small>Ingresa parámetros primero.</small></p>';
-    return;
-  }
-
-  const piscinasTipo = dp.piscinas_tipo || dp.piscinas.map(function(ps) { return {piscina:ps,tipo:'piscina'}; });
-  const promesas = piscinasTipo.map(function(pt) {
-    const ps = pt.piscina||pt, tipo = pt.tipo||'piscina';
-    return fetch('/api/historico?sector=' + encodeURIComponent(sector) + '&piscina=' + encodeURIComponent(ps) + '&tipo=' + encodeURIComponent(tipo) + '&dias=1')
-      .then(function(r){return r.json();}).then(function(d){return {ps, tipo, dato: d.datos&&d.datos.length?d.datos[d.datos.length-1]:null};});
+async function verResumenCampo(sector){
+  detalleSector=sector;
+  const esFimasa3=sector===FIMASA3;
+  document.getElementById('back-resumen').onclick=function(){irA(histOrigen==='g'?'v-gerencia':'v-biologo');if(histOrigen==='g')switchTabG('hist');else switchTab('b','hist');};
+  document.getElementById('resumen-titulo').textContent='📍 '+sector;
+  document.getElementById('resumen-tabla').innerHTML='<div class="spinner" style="margin:20px auto"></div>';
+  setCampoBg(sector);irA('v-resumen');
+  if(esFimasa3){await cargarHeatmapFimasa3(sector);return;}
+  const rp=await fetch('/api/piscinas?sector='+encodeURIComponent(sector));
+  const dp=await rp.json();
+  if(!dp.piscinas||!dp.piscinas.length){document.getElementById('resumen-tabla').innerHTML='<p style="text-align:center;color:#6b7280;padding:20px">Sin datos registrados aún.<br><small>Ingresa parámetros primero.</small></p>';return;}
+  const piscinasTipo=dp.piscinas_tipo||dp.piscinas.map(function(ps){return{piscina:ps,tipo:'piscina'};});
+  const promesas=piscinasTipo.map(function(pt){
+    const ps=pt.piscina||pt,tipo=pt.tipo||'piscina';
+    return fetch('/api/historico?sector='+encodeURIComponent(sector)+'&piscina='+encodeURIComponent(ps)+'&tipo='+encodeURIComponent(tipo)+'&dias=1').then(function(r){return r.json();}).then(function(d){return{ps,tipo,dato:d.datos&&d.datos.length?d.datos[d.datos.length-1]:null};});
   });
-  const resultados = await Promise.all(promesas);
-  resultados.sort(function(a,b) {
-    const tOrd={piscina:0,precria:1,reservorio:2};
-    const ta=tOrd[a.tipo]??3, tb=tOrd[b.tipo]??3;
-    if(ta!==tb) return ta-tb;
-    const na=parseInt(a.ps), nb=parseInt(b.ps);
-    return isNaN(na)||isNaN(nb)?a.ps.localeCompare(b.ps):na-nb;
-  });
-
-  const fechas = resultados.filter(r=>r.dato).map(r=>r.dato.fecha);
-  const fechasOrd = fechas.slice().sort(function(a,b){
-    const [da,ma,ya]=a.split('/'); const [db,mb,yb]=b.split('/');
-    return new Date(yb+'-'+mb+'-'+db)-new Date(ya+'-'+ma+'-'+da);
-  });
-  document.getElementById('resumen-fecha').textContent = fechasOrd.length ? 'Última lectura: ' + fechasOrd[0] : '';
-
-  const rPs  = resultados.filter(r => !r.dato||(r.dato.tipo||'piscina')==='piscina');
-  const rPr  = resultados.filter(r => r.dato&&r.dato.tipo==='precria');
-  const rRes = resultados.filter(r => r.dato&&r.dato.tipo==='reservorio');
-
-  let html = '';
-  if (rPs.length)  html += tablaResumen(rPs, '🐟 PISCINAS', '#0F6E56');
-  if (rPr.length)  html += '<div style="margin-top:12px">' + tablaResumen(rPr, '🌱 PRECRIAS', '#6366f1') + '</div>';
-  if (rRes.length) html += '<div style="margin-top:12px">' + tablaResumen(rRes, '💧 RESERVORIO', '#0891b2') + '</div>';
-  html += '<p style="font-size:11px;color:#9ca3af;text-align:center;margin-top:10px">Toca una piscina para ver su historial →</p>';
-  document.getElementById('resumen-tabla').innerHTML = html;
+  const resultados=await Promise.all(promesas);
+  resultados.sort(function(a,b){const tOrd={piscina:0,precria:1,reservorio:2};const ta=tOrd[a.tipo]??3,tb=tOrd[b.tipo]??3;if(ta!==tb)return ta-tb;const na=parseInt(a.ps),nb=parseInt(b.ps);return isNaN(na)||isNaN(nb)?a.ps.localeCompare(b.ps):na-nb;});
+  const fechas=resultados.filter(r=>r.dato).map(r=>r.dato.fecha);
+  const fechasOrd=fechas.slice().sort(function(a,b){const[da,ma,ya]=a.split('/');const[db,mb,yb]=b.split('/');return new Date(yb+'-'+mb+'-'+db)-new Date(ya+'-'+ma+'-'+da);});
+  document.getElementById('resumen-fecha').textContent=fechasOrd.length?'Última lectura: '+fechasOrd[0]:'';
+  const rPs=resultados.filter(r=>!r.dato||(r.dato.tipo||'piscina')==='piscina');
+  const rPr=resultados.filter(r=>r.dato&&r.dato.tipo==='precria');
+  const rRes=resultados.filter(r=>r.dato&&r.dato.tipo==='reservorio');
+  let html='';
+  if(rPs.length)html+=tablaResumen(rPs,'🐟 PISCINAS','#0F6E56');
+  if(rPr.length)html+='<div style="margin-top:12px">'+tablaResumen(rPr,'🌱 PRECRIAS','#6366f1')+'</div>';
+  if(rRes.length)html+='<div style="margin-top:12px">'+tablaResumen(rRes,'💧 RESERVORIO','#0891b2')+'</div>';
+  html+='<p style="font-size:11px;color:#9ca3af;text-align:center;margin-top:10px">Toca una piscina para ver su historial →</p>';
+  document.getElementById('resumen-tabla').innerHTML=html;
 }
 
-function fmtO2(v) {
-  if(v==null) return '—';
-  if(v<2.9) return '<span style="color:#991b1b;font-weight:700">'+v+'</span>';
-  if(v<3.5) return '<span style="color:#92400e;font-weight:700">'+v+'</span>';
-  return '<span style="color:#065f46">'+v+'</span>';
+async function verDetallePiscina(piscina){
+  detallePiscina=piscina;detallePeriodo=99999;detalleCorrida=null;
+  document.getElementById('back-detalle').onclick=function(){verResumenCampo(detalleSector);};
+  document.getElementById('detalle-titulo').textContent='📊 '+detalleSector+' — '+piscina;
+  document.querySelectorAll('.periodo-btn').forEach((b,i)=>b.classList.toggle('active',i===0));
+  setCampoBg(detalleSector);irA('v-detalle');
+  const rc=await fetch('/api/corridas?sector='+encodeURIComponent(detalleSector)+'&piscina='+encodeURIComponent(piscina));
+  const dc=await rc.json();
+  todasCorridas=dc.corridas||[];renderCorridaSelector();await cargarDetalle();
 }
 
-async function verDetallePiscina(piscina) {
-  detallePiscina = piscina;
-  detallePeriodo = 99999;
-  detalleCorrida = null;
-  document.getElementById('back-detalle').onclick = function() { verResumenCampo(detalleSector); };
-  document.getElementById('detalle-titulo').textContent = '📊 ' + detalleSector + ' — ' + piscina;
-  document.querySelectorAll('.periodo-btn').forEach((b,i) => b.classList.toggle('active',i===0));
-  setCampoBg(detalleSector);
-  irA('v-detalle');
-  const rc = await fetch('/api/corridas?sector=' + encodeURIComponent(detalleSector) + '&piscina=' + encodeURIComponent(piscina));
-  const dc = await rc.json();
-  todasCorridas = dc.corridas || [];
-  renderCorridaSelector();
+function renderCorridaSelector(){
+  const wrap=document.getElementById('corrida-selector');
+  if(!todasCorridas.length){wrap.innerHTML='';return;}
+  const actual=todasCorridas[0];const hayAnt=todasCorridas.length>1;
+  let html='<div style="background:#f0fdf8;border:1.5px solid #9FE1CB;border-radius:12px;padding:12px;margin-bottom:4px"><div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px"><div><span style="font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase">Corrida actual</span><div style="font-size:14px;font-weight:700;color:#0F6E56">Corrida '+actual.corrida+' — '+actual.dias+' días</div><div style="font-size:11px;color:#6b7280">'+actual.inicio+' → '+actual.fin+'</div></div>';
+  if(hayAnt)html+='<select onchange="cambiarCorrida(this.value)" style="padding:8px 10px;border-radius:10px;border:1.5px solid #0F6E56;font-size:13px;color:#0F6E56;font-weight:600;background:white;cursor:pointer"><option value="">Ver corrida anterior...</option>'+todasCorridas.slice(1).map(c=>'<option value="'+c.corrida+'">Corrida '+c.corrida+' ('+c.inicio+' → '+c.fin+')</option>').join('')+'</select>';
+  wrap.innerHTML=html+'</div></div>';
+}
+
+async function cambiarCorrida(corrida){
+  if(!corrida)return;detalleCorrida=corrida;
+  const c=todasCorridas.find(x=>x.corrida==corrida);
+  document.getElementById('detalle-titulo').textContent='📊 '+detalleSector+' — '+detallePiscina+' (Corrida '+corrida+')';
+  document.getElementById('corrida-selector').innerHTML='<div style="background:#fffbeb;border:1.5px solid #f59e0b;border-radius:12px;padding:12px;margin-bottom:4px"><div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px"><div><span style="font-size:11px;font-weight:600;color:#92400e;text-transform:uppercase">Corrida histórica</span><div style="font-size:14px;font-weight:700;color:#92400e">Corrida '+corrida+' — '+(c?c.dias:'')+' días</div><div style="font-size:11px;color:#6b7280">'+(c?c.inicio:'')+' → '+(c?c.fin:'')+' </div></div><button onclick="volverCorridaActual()" style="padding:8px 12px;border-radius:10px;border:1.5px solid #0F6E56;font-size:13px;color:#0F6E56;font-weight:600;background:white;cursor:pointer">← Corrida actual</button></div></div>';
   await cargarDetalle();
 }
 
-function renderCorridaSelector() {
-  const wrap = document.getElementById('corrida-selector');
-  if (!todasCorridas.length) { wrap.innerHTML=''; return; }
-  const actual = todasCorridas[0];
-  const hayAnt = todasCorridas.length > 1;
-  let html = '<div style="background:#f0fdf8;border:1.5px solid #9FE1CB;border-radius:12px;padding:12px;margin-bottom:4px">' +
-    '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">' +
-    '<div><span style="font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase">Corrida actual</span>' +
-    '<div style="font-size:14px;font-weight:700;color:#0F6E56">Corrida ' + actual.corrida + ' — ' + actual.dias + ' días</div>' +
-    '<div style="font-size:11px;color:#6b7280">' + actual.inicio + ' → ' + actual.fin + '</div></div>';
-  if (hayAnt) {
-    html += '<select onchange="cambiarCorrida(this.value)" style="padding:8px 10px;border-radius:10px;border:1.5px solid #0F6E56;font-size:13px;color:#0F6E56;font-weight:600;background:white;cursor:pointer">' +
-      '<option value="">Ver corrida anterior...</option>' +
-      todasCorridas.slice(1).map(c => '<option value="' + c.corrida + '">Corrida ' + c.corrida + ' (' + c.inicio + ' → ' + c.fin + ')</option>').join('') +
-      '</select>';
-  }
-  html += '</div></div>';
-  wrap.innerHTML = html;
-}
+async function volverCorridaActual(){detalleCorrida=null;document.getElementById('detalle-titulo').textContent='📊 '+detalleSector+' — '+detallePiscina;renderCorridaSelector();await cargarDetalle();}
 
-async function cambiarCorrida(corrida) {
-  if (!corrida) return;
-  detalleCorrida = corrida;
-  const c = todasCorridas.find(x => x.corrida == corrida);
-  document.getElementById('detalle-titulo').textContent = '📊 ' + detalleSector + ' — ' + detallePiscina + ' (Corrida ' + corrida + ')';
-  document.getElementById('corrida-selector').innerHTML = '<div style="background:#fffbeb;border:1.5px solid #f59e0b;border-radius:12px;padding:12px;margin-bottom:4px">' +
-    '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">' +
-    '<div><span style="font-size:11px;font-weight:600;color:#92400e;text-transform:uppercase">Corrida histórica</span>' +
-    '<div style="font-size:14px;font-weight:700;color:#92400e">Corrida ' + corrida + ' — ' + (c?c.dias:'') + ' días</div>' +
-    '<div style="font-size:11px;color:#6b7280">' + (c?c.inicio:'') + ' → ' + (c?c.fin:'') + '</div></div>' +
-    '<button onclick="volverCorridaActual()" style="padding:8px 12px;border-radius:10px;border:1.5px solid #0F6E56;font-size:13px;color:#0F6E56;font-weight:600;background:white;cursor:pointer">← Corrida actual</button>' +
-    '</div></div>';
-  await cargarDetalle();
-}
-
-async function volverCorridaActual() {
-  detalleCorrida = null;
-  document.getElementById('detalle-titulo').textContent = '📊 ' + detalleSector + ' — ' + detallePiscina;
-  renderCorridaSelector();
-  await cargarDetalle();
-}
-
-async function cargarDetalle() {
-  const sector=detalleSector, piscina=detallePiscina, dias=detallePeriodo;
-  const esFimasa3 = sector===FIMASA3;
-  const corridaParam = detalleCorrida ? '&corrida=' + detalleCorrida : '';
-  document.getElementById('detalle-metrics').innerHTML = '<div class="spinner" style="margin:10px auto;grid-column:span 2"></div>';
-  document.getElementById('detalle-charts').innerHTML = '';
-  const r = await fetch('/api/historico?sector=' + encodeURIComponent(sector) + '&piscina=' + encodeURIComponent(piscina) + '&dias=' + dias + corridaParam);
-  const d = await r.json();
-  if (!d.datos||!d.datos.length) {
-    document.getElementById('detalle-metrics').innerHTML='';
-    document.getElementById('detalle-charts').innerHTML='<p style="text-align:center;color:#6b7280;padding:20px">Sin datos para este período</p>';
-    return;
-  }
-  const ultimo = d.datos[d.datos.length-1];
-  const labels = d.datos.map(x => x.fecha);
-  Object.values(charts).forEach(c => c.destroy());
-  charts = {};
-
-  if (esFimasa3) {
+async function cargarDetalle(){
+  const sector=detalleSector,piscina=detallePiscina,dias=detallePeriodo;
+  const esFimasa3=sector===FIMASA3;
+  const corridaParam=detalleCorrida?'&corrida='+detalleCorrida:'';
+  document.getElementById('detalle-metrics').innerHTML='<div class="spinner" style="margin:10px auto;grid-column:span 2"></div>';
+  document.getElementById('detalle-charts').innerHTML='';
+  const r=await fetch('/api/historico?sector='+encodeURIComponent(sector)+'&piscina='+encodeURIComponent(piscina)+'&dias='+dias+corridaParam);
+  const d=await r.json();
+  if(!d.datos||!d.datos.length){document.getElementById('detalle-metrics').innerHTML='';document.getElementById('detalle-charts').innerHTML='<p style="text-align:center;color:#6b7280;padding:20px">Sin datos para este período</p>';return;}
+  const ultimo=d.datos[d.datos.length-1];
+  const labels=d.datos.map(x=>x.fecha);
+  Object.values(charts).forEach(c=>c.destroy());charts={};
+  if(esFimasa3){
     const e00=estO2(ultimo.oxigeno_00),e02=estO2(ultimo.oxigeno_02),eAM=estO2(ultimo.oxigeno_am),ePM=estO2(ultimo.oxigeno_pm);
-    document.getElementById('detalle-metrics').innerHTML =
-      '<div class="metric-card alerta-' + e00 + '"><div class="metric-val">' + (ultimo.oxigeno_00??'—') + '</div><div class="metric-lbl">O₂ 00:30 (mg/L)</div></div>' +
-      '<div class="metric-card alerta-' + e02 + '"><div class="metric-val">' + (ultimo.oxigeno_02??'—') + '</div><div class="metric-lbl">O₂ 02:30 (mg/L)</div></div>' +
-      '<div class="metric-card alerta-' + eAM + '"><div class="metric-val">' + (ultimo.oxigeno_am??'—') + '</div><div class="metric-lbl">O₂ 05:00 (mg/L)</div></div>' +
-      '<div class="metric-card" style="border:1.5px solid #ede9fe"><div class="metric-val" style="color:#7c3aed">' + (ultimo.oxigeno_pm??'—') + '</div><div class="metric-lbl">O₂ 16:00 (mg/L)</div></div>';
-    document.getElementById('detalle-charts').innerHTML =
-      '<div class="chart-wrap"><div class="chart-titulo">🌙 Madrugada — O₂</div><canvas id="ch-mad"></canvas></div>' +
-      '<div class="chart-wrap"><div class="chart-titulo">🌅 Temperatura</div><canvas id="ch-tmp"></canvas></div>';
-    charts.mad = new Chart(document.getElementById('ch-mad').getContext('2d'), {type:'line',data:{labels,datasets:[
-      {label:'00:30',data:d.datos.map(x=>x.oxigeno_00),borderColor:'#6366f1',backgroundColor:'#6366f122',borderWidth:2,pointRadius:3,tension:0.3,fill:true,spanGaps:true},
-      {label:'02:30',data:d.datos.map(x=>x.oxigeno_02),borderColor:'#0ea5e9',backgroundColor:'transparent',borderWidth:2,pointRadius:3,tension:0.3,spanGaps:true},
-      {label:'05:00',data:d.datos.map(x=>x.oxigeno_am),borderColor:'#1D9E75',backgroundColor:'transparent',borderWidth:2,pointRadius:3,tension:0.3,spanGaps:true},
-      {label:'Crítico',data:d.datos.map(()=>2.9),borderColor:'#ef444466',borderWidth:1.5,borderDash:[5,3],pointRadius:0,fill:false},
-      {label:'Vigilancia',data:d.datos.map(()=>3.5),borderColor:'#f59e0b66',borderWidth:1.5,borderDash:[5,3],pointRadius:0,fill:false},
-    ]},options:{responsive:true,interaction:{mode:'index',intersect:false},plugins:{legend:{display:true,labels:{font:{size:10},boxWidth:16}}},scales:{y:{grid:{color:'#f0f0f0'},ticks:{font:{size:11}}},x:{grid:{display:false},ticks:{font:{size:10},maxRotation:45,maxTicksLimit:10}}}}});
-    charts.tmp = crearChartDoble('ch-tmp',labels,d.datos.map(x=>x.temp_am),'T° 05:00','#f59e0b',d.datos.map(x=>x.temp_pm),'T° 16:00','#ef4444',false);
-  } else {
+    document.getElementById('detalle-metrics').innerHTML='<div class="metric-card alerta-'+e00+'"><div class="metric-val">'+(ultimo.oxigeno_00??'—')+'</div><div class="metric-lbl">O₂ 00:30 (mg/L)</div></div><div class="metric-card alerta-'+e02+'"><div class="metric-val">'+(ultimo.oxigeno_02??'—')+'</div><div class="metric-lbl">O₂ 02:30 (mg/L)</div></div><div class="metric-card alerta-'+eAM+'"><div class="metric-val">'+(ultimo.oxigeno_am??'—')+'</div><div class="metric-lbl">O₂ 05:00 (mg/L)</div></div><div class="metric-card" style="border:1.5px solid #ede9fe"><div class="metric-val" style="color:#7c3aed">'+(ultimo.oxigeno_pm??'—')+'</div><div class="metric-lbl">O₂ 16:00 (mg/L)</div></div>';
+    document.getElementById('detalle-charts').innerHTML='<div class="chart-wrap"><div class="chart-titulo">🌙 Madrugada — O₂</div><canvas id="ch-mad"></canvas></div><div class="chart-wrap"><div class="chart-titulo">🌅 Temperatura</div><canvas id="ch-tmp"></canvas></div>';
+    charts.mad=new Chart(document.getElementById('ch-mad').getContext('2d'),{type:'line',data:{labels,datasets:[{label:'00:30',data:d.datos.map(x=>x.oxigeno_00),borderColor:'#6366f1',backgroundColor:'#6366f122',borderWidth:2,pointRadius:3,tension:0.3,fill:true,spanGaps:true},{label:'02:30',data:d.datos.map(x=>x.oxigeno_02),borderColor:'#0ea5e9',backgroundColor:'transparent',borderWidth:2,pointRadius:3,tension:0.3,spanGaps:true},{label:'05:00',data:d.datos.map(x=>x.oxigeno_am),borderColor:'#1D9E75',backgroundColor:'transparent',borderWidth:2,pointRadius:3,tension:0.3,spanGaps:true},{label:'Crítico',data:d.datos.map(()=>2.9),borderColor:'#ef444466',borderWidth:1.5,borderDash:[5,3],pointRadius:0,fill:false},{label:'Vigilancia',data:d.datos.map(()=>3.5),borderColor:'#f59e0b66',borderWidth:1.5,borderDash:[5,3],pointRadius:0,fill:false}]},options:{responsive:true,interaction:{mode:'index',intersect:false},plugins:{legend:{display:true,labels:{font:{size:10},boxWidth:16}}},scales:{y:{grid:{color:'#f0f0f0'},ticks:{font:{size:11}}},x:{grid:{display:false},ticks:{font:{size:10},maxRotation:45,maxTicksLimit:10}}}}});
+    charts.tmp=crearChartDoble('ch-tmp',labels,d.datos.map(x=>x.temp_am),'T° 05:00','#f59e0b',d.datos.map(x=>x.temp_pm),'T° 16:00','#ef4444',false);
+  }else{
     const eAM=estO2(ultimo.oxigeno_am),ePM=estO2(ultimo.oxigeno_pm);
-    document.getElementById('detalle-metrics').innerHTML =
-      '<div class="metric-card alerta-' + eAM + '"><div class="metric-val">' + (ultimo.oxigeno_am??'—') + '</div><div class="metric-lbl">O₂ AM (mg/L)</div></div>' +
-      '<div class="metric-card alerta-' + ePM + '"><div class="metric-val">' + (ultimo.oxigeno_pm??'—') + '</div><div class="metric-lbl">O₂ PM (mg/L)</div></div>' +
-      '<div class="metric-card"><div class="metric-val" style="color:#f59e0b">' + (ultimo.temp_am??'—') + '</div><div class="metric-lbl">Temp AM (°C)</div></div>' +
-      '<div class="metric-card"><div class="metric-val" style="color:#ef4444">' + (ultimo.temp_pm??'—') + '</div><div class="metric-lbl">Temp PM (°C)</div></div>';
-    document.getElementById('detalle-charts').innerHTML =
-      '<div class="chart-wrap"><div class="chart-titulo">🌅 Mañana — O₂ AM y T° AM</div><canvas id="ch-am"></canvas></div>' +
-      '<div class="chart-wrap"><div class="chart-titulo">🌆 Tarde — O₂ PM y T° PM</div><canvas id="ch-pm"></canvas></div>';
-    charts.am = crearChartDoble('ch-am',labels,d.datos.map(x=>x.oxigeno_am),'O₂ AM (mg/L)','#1D9E75',d.datos.map(x=>x.temp_am),'T° AM (°C)','#f59e0b',true);
-    charts.pm = crearChartDoble('ch-pm',labels,d.datos.map(x=>x.oxigeno_pm),'O₂ PM (mg/L)','#0F6E56',d.datos.map(x=>x.temp_pm),'T° PM (°C)','#ef4444',true);
+    document.getElementById('detalle-metrics').innerHTML='<div class="metric-card alerta-'+eAM+'"><div class="metric-val">'+(ultimo.oxigeno_am??'—')+'</div><div class="metric-lbl">O₂ AM (mg/L)</div></div><div class="metric-card alerta-'+ePM+'"><div class="metric-val">'+(ultimo.oxigeno_pm??'—')+'</div><div class="metric-lbl">O₂ PM (mg/L)</div></div><div class="metric-card"><div class="metric-val" style="color:#f59e0b">'+(ultimo.temp_am??'—')+'</div><div class="metric-lbl">Temp AM (°C)</div></div><div class="metric-card"><div class="metric-val" style="color:#ef4444">'+(ultimo.temp_pm??'—')+'</div><div class="metric-lbl">Temp PM (°C)</div></div>';
+    document.getElementById('detalle-charts').innerHTML='<div class="chart-wrap"><div class="chart-titulo">🌅 Mañana — O₂ AM y T° AM</div><canvas id="ch-am"></canvas></div><div class="chart-wrap"><div class="chart-titulo">🌆 Tarde — O₂ PM y T° PM</div><canvas id="ch-pm"></canvas></div>';
+    charts.am=crearChartDoble('ch-am',labels,d.datos.map(x=>x.oxigeno_am),'O₂ AM (mg/L)','#1D9E75',d.datos.map(x=>x.temp_am),'T° AM (°C)','#f59e0b',true);
+    charts.pm=crearChartDoble('ch-pm',labels,d.datos.map(x=>x.oxigeno_pm),'O₂ PM (mg/L)','#0F6E56',d.datos.map(x=>x.temp_pm),'T° PM (°C)','#ef4444',true);
   }
 }
 
-function setPeriodo(dias,btn){
-  detallePeriodo=dias;
-  document.querySelectorAll('.periodo-btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  cargarDetalle();
-}
+function setPeriodo(dias,btn){detallePeriodo=dias;document.querySelectorAll('.periodo-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');cargarDetalle();}
 
 function crearChartDoble(canvasId,labels,datos1,label1,color1,datos2,label2,color2,conLineas){
   const ctx=document.getElementById(canvasId).getContext('2d');
-  const datasets=[
-    {label:label1,data:datos1,yAxisID:'y',borderColor:color1,backgroundColor:color1+'22',borderWidth:2,pointRadius:3,tension:0.3,fill:true,spanGaps:true},
-    {label:label2,data:datos2,yAxisID:'y2',borderColor:color2,backgroundColor:'transparent',borderWidth:2,pointRadius:3,borderDash:[4,2],tension:0.3,fill:false,spanGaps:true}
-  ];
-  if(conLineas){
-    datasets.push({label:'Crítico',data:datos1.map(()=>2.9),yAxisID:'y',borderColor:'#ef444466',borderWidth:1.5,borderDash:[5,3],pointRadius:0,fill:false});
-    datasets.push({label:'Vigilancia',data:datos1.map(()=>3.5),yAxisID:'y',borderColor:'#f59e0b66',borderWidth:1.5,borderDash:[5,3],pointRadius:0,fill:false});
-  }
+  const datasets=[{label:label1,data:datos1,yAxisID:'y',borderColor:color1,backgroundColor:color1+'22',borderWidth:2,pointRadius:3,tension:0.3,fill:true,spanGaps:true},{label:label2,data:datos2,yAxisID:'y2',borderColor:color2,backgroundColor:'transparent',borderWidth:2,pointRadius:3,borderDash:[4,2],tension:0.3,fill:false,spanGaps:true}];
+  if(conLineas){datasets.push({label:'Crítico',data:datos1.map(()=>2.9),yAxisID:'y',borderColor:'#ef444466',borderWidth:1.5,borderDash:[5,3],pointRadius:0,fill:false});datasets.push({label:'Vigilancia',data:datos1.map(()=>3.5),yAxisID:'y',borderColor:'#f59e0b66',borderWidth:1.5,borderDash:[5,3],pointRadius:0,fill:false});}
   return new Chart(ctx,{type:'line',data:{labels,datasets},options:{responsive:true,interaction:{mode:'index',intersect:false},plugins:{legend:{display:true,labels:{font:{size:10},boxWidth:16}}},scales:{y:{position:'left',grid:{color:'#f0f0f0'},ticks:{font:{size:11}},title:{display:true,text:'mg/L',font:{size:10}}},y2:{position:'right',grid:{drawOnChartArea:false},ticks:{font:{size:11}},title:{display:true,text:'°C',font:{size:10}}},x:{grid:{display:false},ticks:{font:{size:10},maxRotation:45,maxTicksLimit:10}}}}});
 }
 
 function renderCamposBiologo(){
-  const wrap=document.getElementById('b-campos');
-  wrap.innerHTML='';
+  const wrap=document.getElementById('b-campos');wrap.innerHTML='';
   GRUPOS.forEach(g=>{
-    const gd=document.createElement('div');
-    gd.innerHTML='<div class="grupo-nombre">'+g.nombre+'</div>';
+    const gd=document.createElement('div');gd.innerHTML='<div class="grupo-nombre">'+g.nombre+'</div>';
     const row=document.createElement('div');row.className='campos-row';
     g.campos.forEach(c=>{
-      const btn=document.createElement('button');
-      btn.className='campo-chip'+(biologoCampos.includes(c)?' sel':'');
-      btn.textContent=c;
-      btn.onclick=()=>{
-        if(biologoCampos.includes(c))biologoCampos=biologoCampos.filter(x=>x!==c);
-        else biologoCampos.push(c);
-        btn.classList.toggle('sel');
-      };
+      const btn=document.createElement('button');btn.className='campo-chip'+(biologoCampos.includes(c)?' sel':'');btn.textContent=c;
+      btn.onclick=()=>{if(biologoCampos.includes(c))biologoCampos=biologoCampos.filter(x=>x!==c);else biologoCampos.push(c);btn.classList.toggle('sel');};
       row.appendChild(btn);
     });
     gd.appendChild(row);wrap.appendChild(gd);
@@ -1023,35 +810,23 @@ function renderCamposBiologo(){
 }
 
 async function registrarGerencia(){
-  const nombre=document.getElementById('g-nombre').value.trim();
-  const email=document.getElementById('g-email').value.trim();
-  const wa=document.getElementById('g-wa').value.trim();
+  const nombre=document.getElementById('g-nombre').value.trim(),email=document.getElementById('g-email').value.trim(),wa=document.getElementById('g-wa').value.trim();
   if(!nombre||!email){mostrarEstado('g-estado','err','Completa nombre y email');return;}
   mostrarEstado('g-estado','loading','Guardando...');
-  try{
-    const r=await fetch('/api/registrar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rol:'gerencia',nombre,email,whatsapp:wa})});
-    const d=await r.json();
-    if(d.ok)mostrarEstado('g-estado','ok','✅ '+d.mensaje);
-    else mostrarEstado('g-estado','err',d.error||'Error');
-  }catch(e){mostrarEstado('g-estado','err','Error de conexión');}
+  try{const r=await fetch('/api/registrar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rol:'gerencia',nombre,email,whatsapp:wa})});const d=await r.json();if(d.ok)mostrarEstado('g-estado','ok','✅ '+d.mensaje);else mostrarEstado('g-estado','err',d.error||'Error');}
+  catch(e){mostrarEstado('g-estado','err','Error de conexión');}
 }
 
 async function registrarBiologo(){
-  const nombre=document.getElementById('b-nombre').value.trim();
-  const email=document.getElementById('b-email').value.trim();
-  const wa=document.getElementById('b-wa').value.trim();
+  const nombre=document.getElementById('b-nombre').value.trim(),email=document.getElementById('b-email').value.trim(),wa=document.getElementById('b-wa').value.trim();
   if(!nombre||!email){mostrarEstado('b-estado','err','Completa nombre y email');return;}
   if(!biologoCampos.length){mostrarEstado('b-estado','err','Selecciona al menos un campo');return;}
   mostrarEstado('b-estado','loading','Guardando...');
-  try{
-    const r=await fetch('/api/registrar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rol:'biologo',nombre,email,whatsapp:wa,campos:biologoCampos})});
-    const d=await r.json();
-    if(d.ok)mostrarEstado('b-estado','ok','✅ '+d.mensaje);
-    else mostrarEstado('b-estado','err',d.error||'Error');
-  }catch(e){mostrarEstado('b-estado','err','Error de conexión');}
+  try{const r=await fetch('/api/registrar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rol:'biologo',nombre,email,whatsapp:wa,campos:biologoCampos})});const d=await r.json();if(d.ok)mostrarEstado('b-estado','ok','✅ '+d.mensaje);else mostrarEstado('b-estado','err',d.error||'Error');}
+  catch(e){mostrarEstado('b-estado','err','Error de conexión');}
 }
 
-function estO2(v){if(v===null||v===undefined)return 'n';return v<2.9?'c':v<3.5?'v':'n';}
+function estO2(v){if(v===null||v===undefined)return'n';return v<2.9?'c':v<3.5?'v':'n';}
 
 function mostrarEstado(id,tipo,msg){
   const iconos={ok:'✅',err:'❌',loading:''};
@@ -1060,104 +835,45 @@ function mostrarEstado(id,tipo,msg){
   document.getElementById(id).innerHTML='<div class="estado '+clases[tipo]+'">'+spin+'<p>'+msg.replace(/\n/g,'<br>')+'</p></div>';
 }
 
-async function cargarHeatmapFimasa3(sector) {
-  document.getElementById('resumen-tabla').innerHTML = '<div class="spinner" style="margin:20px auto"></div>';
-  try {
-    var rp = await fetch('/api/piscinas?sector=' + encodeURIComponent(sector));
-    var dp = await rp.json();
-    if (!dp.piscinas || !dp.piscinas.length) {
-      document.getElementById('resumen-tabla').innerHTML = '<p style="text-align:center;color:#6b7280;padding:20px">Sin datos aun.</p>';
-      return;
-    }
-    var piscinasTipo = dp.piscinas_tipo || dp.piscinas.map(function(ps) { return {piscina: ps, tipo: 'piscina'}; });
-    var soloPiscinas = piscinasTipo.filter(function(p) { return (p.tipo||'piscina') === 'piscina'; }).map(function(p) { return p.piscina; });
-    var promesas = soloPiscinas.map(function(ps) {
-      return fetch('/api/historico?sector=' + encodeURIComponent(sector) + '&piscina=' + encodeURIComponent(ps) + '&dias=14')
-        .then(function(r) { return r.json(); })
-        .then(function(d) { return {ps: ps, datos: d.datos || []}; });
+async function cargarHeatmapFimasa3(sector){
+  document.getElementById('resumen-tabla').innerHTML='<div class="spinner" style="margin:20px auto"></div>';
+  try{
+    var rp=await fetch('/api/piscinas?sector='+encodeURIComponent(sector));
+    var dp=await rp.json();
+    if(!dp.piscinas||!dp.piscinas.length){document.getElementById('resumen-tabla').innerHTML='<p style="text-align:center;color:#6b7280;padding:20px">Sin datos aun.</p>';return;}
+    var piscinasTipo=dp.piscinas_tipo||dp.piscinas.map(function(ps){return{piscina:ps,tipo:'piscina'};});
+    var soloPiscinas=piscinasTipo.filter(function(p){return(p.tipo||'piscina')==='piscina';}).map(function(p){return p.piscina;});
+    var promesas=soloPiscinas.map(function(ps){return fetch('/api/historico?sector='+encodeURIComponent(sector)+'&piscina='+encodeURIComponent(ps)+'&dias=14').then(function(r){return r.json();}).then(function(d){return{ps:ps,datos:d.datos||[]};});});
+    var resultados=await Promise.all(promesas);
+    var fechasSet=new Set();resultados.forEach(function(r){r.datos.forEach(function(d){fechasSet.add(d.fecha);});});
+    var fechas=Array.from(fechasSet).sort(function(a,b){var pa=a.split('/'),pb=b.split('/');return new Date(pa[2]+'-'+pa[1]+'-'+pa[0])-new Date(pb[2]+'-'+pb[1]+'-'+pb[0]);});
+    var lookup={};resultados.forEach(function(r){lookup[r.ps]={};r.datos.forEach(function(d){lookup[r.ps][d.fecha]=d.oxigeno_am;});});
+    soloPiscinas.sort(function(a,b){var na=parseInt(a),nb=parseInt(b);return isNaN(na)||isNaN(nb)?a.localeCompare(b):na-nb;});
+    function o2ToColor(v){if(v==null)return{bg:'#f3f4f6',text:'#9ca3af'};if(v<2.5)return{bg:'#7f1d1d',text:'white'};if(v<2.9)return{bg:'#dc2626',text:'white'};if(v<3.2)return{bg:'#f97316',text:'white'};if(v<3.5)return{bg:'#fbbf24',text:'#374151'};if(v<3.8)return{bg:'#86efac',text:'#065f46'};if(v<4.2)return{bg:'#22c55e',text:'white'};return{bg:'#15803d',text:'white'};}
+    var CELDA=48;var html='<div style="margin-bottom:12px">';
+    html+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:12px;align-items:center"><span style="font-size:11px;font-weight:700;color:#374151;margin-right:4px">O2 05:00 AM:</span>';
+    var leyenda=[['< 2.5','#7f1d1d','white'],['2.5-2.9','#dc2626','white'],['2.9-3.2','#f97316','white'],['3.2-3.5','#fbbf24','#374151'],['3.5-3.8','#86efac','#065f46'],['3.8-4.2','#22c55e','white'],['> 4.2','#15803d','white']];
+    leyenda.forEach(function(item){html+='<span style="background:'+item[1]+';color:'+item[2]+';padding:3px 7px;border-radius:6px;font-size:11px;font-weight:600">'+item[0]+'</span>';});
+    html+='</div><div style="overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:10px;border:1px solid #e5e7eb"><table style="border-collapse:collapse;min-width:100%"><thead><tr>';
+    html+='<th style="padding:7px 10px;background:#1e3a2e;color:white;font-size:12px;text-align:left;position:sticky;left:0;z-index:2;min-width:44px;border-right:2px solid #0F6E56">PS</th>';
+    fechas.forEach(function(f){var parts=f.split('/');html+='<th style="padding:6px 4px;background:#1e3a2e;color:white;font-size:11px;text-align:center;min-width:'+CELDA+'px;white-space:nowrap">'+parts[0]+'/'+parts[1]+'</th>';});
+    html+='<th style="padding:6px 8px;background:#0F6E56;color:white;font-size:11px;text-align:center;min-width:54px;border-left:2px solid #0a4a38">PROM</th></tr></thead><tbody>';
+    soloPiscinas.forEach(function(ps,i){
+      var rowBg=i%2===0?'#ffffff':'#f9fafb';html+='<tr>';
+      html+='<td style="padding:6px 10px;font-weight:700;font-size:13px;color:#0F6E56;position:sticky;left:0;background:'+rowBg+';z-index:1;border-right:2px solid #e5e7eb;cursor:pointer" onclick="verDetallePiscina('+"'"+ps+"'"+')">' +ps+'</td>';
+      var vals=[];
+      fechas.forEach(function(f){var v=(lookup[ps]&&lookup[ps][f]!=null)?lookup[ps][f]:null;if(v!=null)vals.push(v);var c=o2ToColor(v);html+='<td style="padding:5px 3px;text-align:center;background:'+c.bg+';color:'+c.text+';font-size:13px;font-weight:600;min-width:'+CELDA+'px">'+(v!=null?v:'&mdash;')+'</td>';});
+      var promV=vals.length?vals.reduce(function(a,b){return a+b;},0)/vals.length:null;
+      var promS=promV!=null?promV.toFixed(2):'&mdash;';var cp=o2ToColor(promV);
+      html+='<td style="padding:5px 8px;text-align:center;background:'+cp.bg+';color:'+cp.text+';font-size:13px;font-weight:700;border-left:2px solid #e5e7eb">'+promS+'</td></tr>';
     });
-    var resultados = await Promise.all(promesas);
-    var fechasSet = new Set();
-    resultados.forEach(function(r) { r.datos.forEach(function(d) { fechasSet.add(d.fecha); }); });
-    var fechas = Array.from(fechasSet).sort(function(a, b) {
-      var pa = a.split('/'), pb = b.split('/');
-      return new Date(pa[2]+'-'+pa[1]+'-'+pa[0]) - new Date(pb[2]+'-'+pb[1]+'-'+pb[0]);
-    });
-    var lookup = {};
-    resultados.forEach(function(r) {
-      lookup[r.ps] = {};
-      r.datos.forEach(function(d) { lookup[r.ps][d.fecha] = d.oxigeno_am; });
-    });
-    soloPiscinas.sort(function(a, b) {
-      var na = parseInt(a), nb = parseInt(b);
-      return isNaN(na)||isNaN(nb) ? a.localeCompare(b) : na - nb;
-    });
-    function o2ToColor(v) {
-      if (v == null) return {bg:'#f3f4f6', text:'#9ca3af'};
-      if (v < 2.5)   return {bg:'#7f1d1d', text:'white'};
-      if (v < 2.9)   return {bg:'#dc2626', text:'white'};
-      if (v < 3.2)   return {bg:'#f97316', text:'white'};
-      if (v < 3.5)   return {bg:'#fbbf24', text:'#374151'};
-      if (v < 3.8)   return {bg:'#86efac', text:'#065f46'};
-      if (v < 4.2)   return {bg:'#22c55e', text:'white'};
-      return {bg:'#15803d', text:'white'};
-    }
-    var CELDA = 48;
-    var html = '<div style="margin-bottom:12px">';
-    html += '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:12px;align-items:center">';
-    html += '<span style="font-size:11px;font-weight:700;color:#374151;margin-right:4px">O2 05:00 AM:</span>';
-    var leyenda = [['< 2.5','#7f1d1d','white'],['2.5-2.9','#dc2626','white'],['2.9-3.2','#f97316','white'],
-      ['3.2-3.5','#fbbf24','#374151'],['3.5-3.8','#86efac','#065f46'],['3.8-4.2','#22c55e','white'],['> 4.2','#15803d','white']];
-    leyenda.forEach(function(item) {
-      html += '<span style="background:' + item[1] + ';color:' + item[2] + ';padding:3px 7px;border-radius:6px;font-size:11px;font-weight:600">' + item[0] + '</span>';
-    });
-    html += '</div>';
-    html += '<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:10px;border:1px solid #e5e7eb">';
-    html += '<table style="border-collapse:collapse;min-width:100%">';
-    html += '<thead><tr>';
-    html += '<th style="padding:7px 10px;background:#1e3a2e;color:white;font-size:12px;text-align:left;position:sticky;left:0;z-index:2;min-width:44px;border-right:2px solid #0F6E56">PS</th>';
-    fechas.forEach(function(f) {
-      var parts = f.split('/');
-      html += '<th style="padding:6px 4px;background:#1e3a2e;color:white;font-size:11px;text-align:center;min-width:' + CELDA + 'px;white-space:nowrap">' + parts[0] + '/' + parts[1] + '</th>';
-    });
-    html += '<th style="padding:6px 8px;background:#0F6E56;color:white;font-size:11px;text-align:center;min-width:54px;border-left:2px solid #0a4a38">PROM</th>';
-    html += '</tr></thead><tbody>';
-    soloPiscinas.forEach(function(ps, i) {
-      var rowBg = i % 2 === 0 ? '#ffffff' : '#f9fafb';
-      html += '<tr>';
-      html += '<td style="padding:6px 10px;font-weight:700;font-size:13px;color:#0F6E56;position:sticky;left:0;background:' + rowBg + ';z-index:1;border-right:2px solid #e5e7eb;cursor:pointer" onclick="verDetallePiscina(' + "'" + ps + "'" + ')">' + ps + '</td>';
-      var vals = [];
-      fechas.forEach(function(f) {
-        var v = (lookup[ps] && lookup[ps][f] != null) ? lookup[ps][f] : null;
-        if (v != null) vals.push(v);
-        var c = o2ToColor(v);
-        html += '<td style="padding:5px 3px;text-align:center;background:' + c.bg + ';color:' + c.text + ';font-size:13px;font-weight:600;min-width:' + CELDA + 'px">' + (v != null ? v : '&mdash;') + '</td>';
-      });
-      var promV = vals.length ? vals.reduce(function(a,b){return a+b;}, 0) / vals.length : null;
-      var promS = promV != null ? promV.toFixed(2) : '&mdash;';
-      var cp = o2ToColor(promV);
-      html += '<td style="padding:5px 8px;text-align:center;background:' + cp.bg + ';color:' + cp.text + ';font-size:13px;font-weight:700;border-left:2px solid #e5e7eb">' + promS + '</td>';
-      html += '</tr>';
-    });
-    html += '<tr style="border-top:2px solid #e5e7eb">';
-    html += '<td style="padding:6px 10px;font-weight:700;font-size:11px;color:#6b7280;background:#f0fdf4;position:sticky;left:0;z-index:1;border-right:2px solid #e5e7eb">PROM</td>';
-    fechas.forEach(function(f) {
-      var valsF = soloPiscinas.map(function(ps) { return (lookup[ps] && lookup[ps][f] != null) ? lookup[ps][f] : null; }).filter(function(v) { return v != null; });
-      var promF = valsF.length ? valsF.reduce(function(a,b){return a+b;}, 0) / valsF.length : null;
-      var promS = promF != null ? promF.toFixed(2) : '&mdash;';
-      var c = o2ToColor(promF);
-      html += '<td style="padding:5px 3px;text-align:center;background:' + c.bg + ';color:' + c.text + ';font-size:12px;font-weight:700;min-width:' + CELDA + 'px">' + promS + '</td>';
-    });
-    html += '<td style="background:#f0fdf4;border-left:2px solid #e5e7eb"></td>';
-    html += '</tr>';
-    html += '</tbody></table></div>';
-    html += '<p style="font-size:11px;color:#9ca3af;text-align:center;margin-top:8px">Desliza para ver dias anteriores - Toca PS para ver historial</p>';
-    html += '</div>';
-    document.getElementById('resumen-tabla').innerHTML = html;
-    document.getElementById('resumen-fecha').textContent = 'Historial O2 05:00 AM - ultimos 14 dias';
-  } catch(e) {
-    document.getElementById('resumen-tabla').innerHTML = '<p style="color:#ef4444;text-align:center;padding:20px">Error: ' + e.message + '</p>';
-  }
+    html+='<tr style="border-top:2px solid #e5e7eb"><td style="padding:6px 10px;font-weight:700;font-size:11px;color:#6b7280;background:#f0fdf4;position:sticky;left:0;z-index:1;border-right:2px solid #e5e7eb">PROM</td>';
+    fechas.forEach(function(f){var valsF=soloPiscinas.map(function(ps){return(lookup[ps]&&lookup[ps][f]!=null)?lookup[ps][f]:null;}).filter(function(v){return v!=null;});var promF=valsF.length?valsF.reduce(function(a,b){return a+b;},0)/valsF.length:null;var promS=promF!=null?promF.toFixed(2):'&mdash;';var c=o2ToColor(promF);html+='<td style="padding:5px 3px;text-align:center;background:'+c.bg+';color:'+c.text+';font-size:12px;font-weight:700;min-width:'+CELDA+'px">'+promS+'</td>';});
+    html+='<td style="background:#f0fdf4;border-left:2px solid #e5e7eb"></td></tr></tbody></table></div>';
+    html+='<p style="font-size:11px;color:#9ca3af;text-align:center;margin-top:8px">Desliza para ver dias anteriores - Toca PS para ver historial</p></div>';
+    document.getElementById('resumen-tabla').innerHTML=html;
+    document.getElementById('resumen-fecha').textContent='Historial O2 05:00 AM - ultimos 14 dias';
+  }catch(e){document.getElementById('resumen-tabla').innerHTML='<p style="color:#ef4444;text-align:center;padding:20px">Error: '+e.message+'</p>';}
 }
 </script>
 </body>
